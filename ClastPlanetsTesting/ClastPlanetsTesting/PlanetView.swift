@@ -25,6 +25,13 @@ struct PlanetView: View {
             // Planet body
             planetBody
 
+            // Ozone layer (on top of planet surface)
+            OzoneLayerView(
+                seed: planet.seed,
+                radius: planetRadius,
+                density: planet.ozoneDensity
+            )
+
             // Moons
             if planet.moonCount > 0 {
                 moonsLayer
@@ -241,7 +248,23 @@ struct PlanetView: View {
 
     // MARK: - Moons Layer
 
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    @ViewBuilder
     private var moonsLayer: some View {
+        if reduceMotion {
+            // Static moons when Reduce Motion is enabled
+            moonsContent(rotationAngle: 0)
+        } else {
+            // Animated orbiting moons
+            TimelineView(.animation) { timelineContext in
+                moonsContent(rotationAngle: timelineContext.date.timeIntervalSinceReferenceDate)
+            }
+        }
+    }
+
+    /// Renders the moons at a given rotation angle
+    private func moonsContent(rotationAngle: Double) -> some View {
         ZStack {
             ForEach(0..<planet.moonCount, id: \.self) { index in
                 Circle()
@@ -254,7 +277,7 @@ struct PlanetView: View {
                         )
                     )
                     .frame(width: moonRadius * 2, height: moonRadius * 2)
-                    .offset(moonOffset(index: index))
+                    .offset(moonOffset(index: index, rotationAngle: rotationAngle))
             }
         }
     }
@@ -271,17 +294,24 @@ struct PlanetView: View {
 
     // MARK: - Positioning Helpers
 
-    /// Calculate offset for moons based on index
-    private func moonOffset(index: Int) -> CGSize {
+    /// Calculate offset for moons based on index and current rotation angle
+    private func moonOffset(index: Int, rotationAngle: Double) -> CGSize {
         // Use planet seed to make moon positions deterministic
         var rng = SeededRandomGenerator(seed: planet.seed + index * 1000)
 
-        let angle = rng.nextDouble() * 2 * .pi
+        // Each moon has a unique orbital speed and starting angle
+        let baseAngle = rng.nextDouble() * 2 * .pi
+        let orbitalSpeed = rng.nextDouble(min: 0.1, max: 0.3) // Radians per second
         let distance = planetRadius * rng.nextDouble(min: 1.4, max: 1.8)
 
+        // Calculate current angle based on rotation and orbital speed
+        // Outer moons (higher index) orbit slower, creating varied motion
+        let speedMultiplier = 1.0 - (Double(index) * 0.2)
+        let currentAngle = baseAngle + (rotationAngle * orbitalSpeed * speedMultiplier)
+
         return CGSize(
-            width: cos(angle) * distance,
-            height: sin(angle) * distance
+            width: cos(currentAngle) * distance,
+            height: sin(currentAngle) * distance
         )
     }
 

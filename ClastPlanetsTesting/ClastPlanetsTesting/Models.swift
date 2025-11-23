@@ -101,6 +101,7 @@ struct Planet: Identifiable, Codable, Equatable {
     let moonCount: Int // 0-3
     let atmosphereType: AtmosphereType
     let size: Double // 0.8 to 1.5
+    let ozoneDensity: Double // 0.0 to 1.0 - controls ozone layer opacity/intensity
 
     // Colors (stored as hex strings for Codable)
     let primaryColorHex: String

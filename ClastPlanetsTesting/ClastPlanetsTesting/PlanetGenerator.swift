@@ -59,6 +59,7 @@ class PlanetGenerator {
         let moonCount = generateMoonCount(rarity: rarity, rng: &rng)
         let atmosphereType = generateAtmosphereType(rarity: rarity, rng: &rng)
         let size = rng.nextDouble(min: 0.8, max: 1.5)
+        let ozoneDensity = generateOzoneDensity(rarity: rarity, rng: &rng)
 
         // Generate colors
         let colors = generateColors(rarity: rarity, rng: &rng)
@@ -77,6 +78,7 @@ class PlanetGenerator {
             moonCount: moonCount,
             atmosphereType: atmosphereType,
             size: size,
+            ozoneDensity: ozoneDensity,
             primaryColorHex: colors.primary,
             secondaryColorHex: colors.secondary,
             accentColorHex: colors.accent
@@ -203,6 +205,20 @@ class PlanetGenerator {
         case .legendary:
             if roll < 0.5 { return .aurora }
             return .cosmic
+        }
+    }
+
+    private static func generateOzoneDensity(rarity: Rarity, rng: inout SeededRandomGenerator) -> Double {
+        // Higher rarity planets tend to have denser ozone layers
+        switch rarity {
+        case .common:
+            return rng.nextDouble(min: 0.0, max: 0.3)
+        case .uncommon:
+            return rng.nextDouble(min: 0.2, max: 0.5)
+        case .rare:
+            return rng.nextDouble(min: 0.4, max: 0.7)
+        case .legendary:
+            return rng.nextDouble(min: 0.6, max: 1.0)
         }
     }
 

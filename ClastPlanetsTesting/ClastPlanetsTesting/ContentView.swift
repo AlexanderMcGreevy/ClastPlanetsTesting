@@ -8,14 +8,28 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var viewModel = GalaxyViewModel()
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            GeneratorView()
+                .tabItem {
+                    Label("Generator", systemImage: "sparkles")
+                }
+                .environment(viewModel)
+
+            CollectionView()
+                .tabItem {
+                    Label("Collection", systemImage: "square.stack.3d.up")
+                }
+                .environment(viewModel)
+
+            GalaxyView()
+                .tabItem {
+                    Label("Galaxy", systemImage: "globe.americas.fill")
+                }
+                .environment(viewModel)
         }
-        .padding()
     }
 }
 

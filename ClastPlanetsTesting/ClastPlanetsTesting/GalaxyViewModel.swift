@@ -31,6 +31,20 @@ class GalaxyViewModel {
         }
     }
 
+    // Favorited planets
+    var favoritedPlanetIDs: Set<UUID> = [] {
+        didSet {
+            PersistenceManager.shared.saveFavoritedPlanetIDs(favoritedPlanetIDs)
+        }
+    }
+
+    // Custom positions for planets in galaxy view (in normalized coordinates 0.0-1.0)
+    var customPlanetPositions: [UUID: CGPoint] = [:] {
+        didSet {
+            PersistenceManager.shared.saveCustomPlanetPositions(customPlanetPositions)
+        }
+    }
+
     // Current planet preview (not yet discovered)
     var currentPreviewPlanet: Planet?
 
@@ -58,6 +72,8 @@ class GalaxyViewModel {
         totalDistanceTravelled = PersistenceManager.shared.loadTotalDistance()
         discoveredPlanets = PersistenceManager.shared.loadPlanets()
         activePlanetID = PersistenceManager.shared.loadActivePlanetID()
+        favoritedPlanetIDs = PersistenceManager.shared.loadFavoritedPlanetIDs()
+        customPlanetPositions = PersistenceManager.shared.loadCustomPlanetPositions()
 
         // If we have planets but no active planet, set the first one as active
         if activePlanetID == nil && !discoveredPlanets.isEmpty {
@@ -94,6 +110,34 @@ class GalaxyViewModel {
 
     func setActivePlanet(_ planet: Planet) {
         activePlanetID = planet.id
+    }
+
+    // MARK: - Favoriting
+
+    func toggleFavorite(_ planet: Planet) {
+        if favoritedPlanetIDs.contains(planet.id) {
+            favoritedPlanetIDs.remove(planet.id)
+        } else {
+            favoritedPlanetIDs.insert(planet.id)
+        }
+    }
+
+    func isFavorited(_ planet: Planet) -> Bool {
+        favoritedPlanetIDs.contains(planet.id)
+    }
+
+    // MARK: - Custom Positions
+
+    func setCustomPosition(for planetID: UUID, position: CGPoint) {
+        customPlanetPositions[planetID] = position
+    }
+
+    func getCustomPosition(for planetID: UUID) -> CGPoint? {
+        customPlanetPositions[planetID]
+    }
+
+    func clearCustomPosition(for planetID: UUID) {
+        customPlanetPositions.removeValue(forKey: planetID)
     }
 
     // MARK: - Statistics

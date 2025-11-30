@@ -7,8 +7,17 @@
 
 import SwiftUI
 
+enum PlanetSortOption: String, CaseIterable {
+    case distance = "Distance"
+    case rarity = "Rarity"
+    case name = "Name"
+    case favorites = "Favorites"
+}
+
 struct CollectionView: View {
     @Environment(GalaxyViewModel.self) private var viewModel
+    @State private var sortOption: PlanetSortOption = .distance
+    @State private var showFavoritesOnly = false
 
     var body: some View {
         NavigationStack {
@@ -21,7 +30,59 @@ struct CollectionView: View {
             }
             .navigationTitle("Collection")
             .background(Color(uiColor: .systemGroupedBackground))
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("Sort By", selection: $sortOption) {
+                            ForEach(PlanetSortOption.allCases, id: \.self) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+
+                        Divider()
+
+                        Toggle(isOn: $showFavoritesOnly) {
+                            Label("Favorites Only", systemImage: "star.fill")
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                }
+            }
         }
+    }
+
+    // MARK: - Sorting
+
+    private var sortedPlanets: [Planet] {
+        var planets = switch sortOption {
+        case .distance:
+            viewModel.sortedPlanets
+        case .rarity:
+            viewModel.discoveredPlanets.sorted { p1, p2 in
+                let order: [Rarity] = [.legendary, .rare, .uncommon, .common]
+                let index1 = order.firstIndex(of: p1.rarity) ?? order.count
+                let index2 = order.firstIndex(of: p2.rarity) ?? order.count
+                return index1 < index2
+            }
+        case .name:
+            viewModel.discoveredPlanets.sorted { $0.name < $1.name }
+        case .favorites:
+            viewModel.discoveredPlanets.sorted { p1, p2 in
+                let fav1 = viewModel.isFavorited(p1)
+                let fav2 = viewModel.isFavorited(p2)
+                if fav1 != fav2 {
+                    return fav1
+                }
+                return p1.distanceDiscoveredAt < p2.distanceDiscoveredAt
+            }
+        }
+
+        if showFavoritesOnly {
+            planets = planets.filter { viewModel.isFavorited($0) }
+        }
+
+        return planets
     }
 
     // MARK: - Empty State
@@ -50,12 +111,23 @@ struct CollectionView: View {
     private var planetList: some View {
         List {
             Section {
-                ForEach(viewModel.sortedPlanets) { planet in
+                ForEach(sortedPlanets) { planet in
                     NavigationLink {
                         PlanetDetailView(planet: planet)
                             .environment(viewModel)
                     } label: {
-                        PlanetRow(planet: planet)
+                        PlanetRow(planet: planet, viewModel: viewModel)
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            viewModel.toggleFavorite(planet)
+                        } label: {
+                            Label(
+                                viewModel.isFavorited(planet) ? "Unfavorite" : "Favorite",
+                                systemImage: viewModel.isFavorited(planet) ? "star.slash" : "star.fill"
+                            )
+                        }
+                        .tint(.yellow)
                     }
                 }
             } header: {
@@ -73,6 +145,7 @@ struct CollectionView: View {
 
 struct PlanetRow: View {
     let planet: Planet
+    let viewModel: GalaxyViewModel
 
     var body: some View {
         HStack(spacing: 16) {
@@ -81,8 +154,16 @@ struct PlanetRow: View {
 
             // Planet info
             VStack(alignment: .leading, spacing: 6) {
-                Text(planet.name)
-                    .font(.headline)
+                HStack {
+                    Text(planet.name)
+                        .font(.headline)
+
+                    if viewModel.isFavorited(planet) {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.caption)
+                    }
+                }
 
                 HStack(spacing: 8) {
                     Text(planet.rarity.displayName)

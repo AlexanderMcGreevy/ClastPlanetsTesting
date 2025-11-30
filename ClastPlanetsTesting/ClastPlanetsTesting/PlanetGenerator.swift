@@ -39,6 +39,10 @@ class PlanetGenerator {
         "FF00FF", "00FFFF", "FFD700", "FF1493", "7B68EE", "00FF7F"
     ]
 
+    private static let mythicColors = [
+        "FF4500", "FF8C00", "FFA500", "FFB400", "FF6347", "FF7F50"
+    ]
+
     // MARK: - Main Generation Function
 
     /// Generate a planet based on the total distance traveled
@@ -61,6 +65,10 @@ class PlanetGenerator {
         let size = rng.nextDouble(min: 0.8, max: 1.5)
         let ozoneDensity = generateOzoneDensity(rarity: rarity, rng: &rng)
 
+        // Generate ring properties
+        let ringTilt = rng.nextDouble(min: 0, max: 360)
+        let ringWidth = rng.nextDouble(min: 0.5, max: 2.0)
+
         // Generate colors
         let colors = generateColors(rarity: rarity, rng: &rng)
 
@@ -79,6 +87,8 @@ class PlanetGenerator {
             atmosphereType: atmosphereType,
             size: size,
             ozoneDensity: ozoneDensity,
+            ringTilt: ringTilt,
+            ringWidth: ringWidth,
             primaryColorHex: colors.primary,
             secondaryColorHex: colors.secondary,
             accentColorHex: colors.accent
@@ -90,7 +100,7 @@ class PlanetGenerator {
     /// Determine planet rarity based on distance
     /// Distance near 0 → mostly common
     /// Mid-range → mix of common/uncommon/rare
-    /// High distance → better chance of rare/legendary
+    /// High distance → better chance of rare/legendary/mythic
     private static func determineRarity(distance: Double, rng: inout SeededRandomGenerator) -> Rarity {
         // Normalize distance to 0-1 scale (assuming max distance of 100,000)
         let normalizedDistance = min(distance / 100_000, 1.0)
@@ -101,7 +111,8 @@ class PlanetGenerator {
         // 0-20,000: Mostly common
         // 20,000-50,000: Common → Uncommon
         // 50,000-80,000: Uncommon → Rare
-        // 80,000+: Rare → Legendary
+        // 80,000-95,000: Rare → Legendary
+        // 95,000+: Legendary → Mythic (very rare)
 
         if normalizedDistance < 0.2 {
             // Early game: 80% common, 18% uncommon, 2% rare
@@ -120,12 +131,20 @@ class PlanetGenerator {
             if roll < 0.60 { return .uncommon }
             if roll < 0.95 { return .rare }
             return .legendary
-        } else {
-            // End game: 5% common, 20% uncommon, 50% rare, 25% legendary
+        } else if normalizedDistance < 0.95 {
+            // Late game: 5% common, 20% uncommon, 50% rare, 24% legendary, 1% mythic
             if roll < 0.05 { return .common }
             if roll < 0.25 { return .uncommon }
             if roll < 0.75 { return .rare }
-            return .legendary
+            if roll < 0.99 { return .legendary }
+            return .mythic
+        } else {
+            // End game: 2% common, 10% uncommon, 30% rare, 55% legendary, 3% mythic
+            if roll < 0.02 { return .common }
+            if roll < 0.12 { return .uncommon }
+            if roll < 0.42 { return .rare }
+            if roll < 0.97 { return .legendary }
+            return .mythic
         }
     }
 
@@ -143,6 +162,8 @@ class PlanetGenerator {
             availableTypes = [.striped, .cratered, .swirled]
         case .legendary:
             availableTypes = [.swirled, .volcanic]
+        case .mythic:
+            availableTypes = [.crystalline, .nebulous, .prismatic]
         }
 
         return availableTypes.randomElement(using: &rng)!
@@ -166,6 +187,8 @@ class PlanetGenerator {
             if roll < 0.3 { return .double }
             if roll < 0.7 { return .chunky }
             return .rainbow
+        case .mythic:
+            return .crossed
         }
     }
 
@@ -185,6 +208,8 @@ class PlanetGenerator {
             return 3
         case .legendary:
             return rng.nextInt(min: 2, max: 3)
+        case .mythic:
+            return rng.nextInt(min: 3, max: 4)
         }
     }
 
@@ -205,6 +230,8 @@ class PlanetGenerator {
         case .legendary:
             if roll < 0.5 { return .aurora }
             return .cosmic
+        case .mythic:
+            return roll < 0.5 ? .storm : .ethereal
         }
     }
 
@@ -219,6 +246,8 @@ class PlanetGenerator {
             return rng.nextDouble(min: 0.4, max: 0.7)
         case .legendary:
             return rng.nextDouble(min: 0.6, max: 1.0)
+        case .mythic:
+            return rng.nextDouble(min: 0.8, max: 1.0)
         }
     }
 
@@ -234,6 +263,8 @@ class PlanetGenerator {
             palette = rareColors
         case .legendary:
             palette = legendaryColors
+        case .mythic:
+            palette = mythicColors
         }
 
         let primary = palette.randomElement(using: &rng)!

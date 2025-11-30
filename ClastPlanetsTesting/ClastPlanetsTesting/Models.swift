@@ -15,6 +15,7 @@ enum Rarity: String, Codable, CaseIterable {
     case uncommon
     case rare
     case legendary
+    case mythic
 
     var color: Color {
         switch self {
@@ -22,6 +23,7 @@ enum Rarity: String, Codable, CaseIterable {
         case .uncommon: return .green
         case .rare: return .blue
         case .legendary: return .purple
+        case .mythic: return .orange
         }
     }
 
@@ -38,6 +40,9 @@ enum BaseType: String, Codable, CaseIterable {
     case cratered
     case swirled
     case volcanic
+    case crystalline
+    case nebulous
+    case prismatic
 
     var rarity: Rarity {
         switch self {
@@ -46,6 +51,9 @@ enum BaseType: String, Codable, CaseIterable {
         case .cratered: return .uncommon
         case .swirled: return .rare
         case .volcanic: return .legendary
+        case .crystalline: return .mythic
+        case .nebulous: return .mythic
+        case .prismatic: return .mythic
         }
     }
 }
@@ -56,6 +64,7 @@ enum RingType: String, Codable, CaseIterable {
     case double
     case chunky
     case rainbow
+    case crossed
 
     var rarity: Rarity {
         switch self {
@@ -64,6 +73,7 @@ enum RingType: String, Codable, CaseIterable {
         case .double: return .rare
         case .chunky: return .rare
         case .rainbow: return .legendary
+        case .crossed: return .mythic
         }
     }
 }
@@ -74,6 +84,8 @@ enum AtmosphereType: String, Codable, CaseIterable {
     case halo
     case aurora
     case cosmic
+    case storm
+    case ethereal
 
     var rarity: Rarity {
         switch self {
@@ -82,6 +94,8 @@ enum AtmosphereType: String, Codable, CaseIterable {
         case .halo: return .rare
         case .aurora: return .rare
         case .cosmic: return .legendary
+        case .storm: return .mythic
+        case .ethereal: return .mythic
         }
     }
 }
@@ -102,6 +116,8 @@ struct Planet: Identifiable, Codable, Equatable {
     let atmosphereType: AtmosphereType
     let size: Double // 0.8 to 1.5
     let ozoneDensity: Double // 0.0 to 1.0 - controls ozone layer opacity/intensity
+    let ringTilt: Double // Rotation angle for rings in degrees (0-360)
+    let ringWidth: Double // Multiplier for ring line width (0.5-2.0)
 
     // Colors (stored as hex strings for Codable)
     let primaryColorHex: String
@@ -124,12 +140,19 @@ struct Planet: Identifiable, Codable, Equatable {
     // Calculate overall rarity based on components
     var calculatedRarity: Rarity {
         let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity]
+
+        // If any component is mythic, the planet is mythic
+        if rarities.contains(.mythic) {
+            return .mythic
+        }
+
         let rarityScores = rarities.map { rarity -> Int in
             switch rarity {
             case .common: return 0
             case .uncommon: return 1
             case .rare: return 2
             case .legendary: return 3
+            case .mythic: return 4
             }
         }
 

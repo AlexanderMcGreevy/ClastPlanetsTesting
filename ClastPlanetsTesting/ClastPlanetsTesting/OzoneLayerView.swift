@@ -53,58 +53,77 @@ struct OzoneLayerView: View {
 
     // MARK: - Drawing
 
-    /// Draws the ozone mesh pattern using multiple flowing bands
+    /// Draws the ozone mesh pattern using multiple flowing bands with multiple density layers
     private func drawOzonePattern(in context: GraphicsContext, size: CGSize, phase: Double) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
 
         // Use seed to create variation between planets
         var rng = SeededRandomGenerator(seed: seed)
 
-        // Generate 3-5 flowing bands based on seed
-        let bandCount = rng.nextInt(min: 3, max: 5)
+        // Draw multiple density layers for depth (2-3 layers)
+        let layerCount = rng.nextInt(min: 2, max: 3)
 
-        for i in 0..<bandCount {
-            // Each band has slightly different properties based on seed
-            let bandSeed = Double(rng.nextInt(min: 0, max: 1000))
-            let frequencyOffset = rng.nextDouble(min: 0, max: 2 * .pi)
-            let amplitude = rng.nextDouble(min: 0.3, max: 0.6)
-            let bandWidth = CGFloat(rng.nextDouble(min: 3, max: 8))
+        for layerIndex in 0..<layerCount {
+            // Each layer has different depth and density
+            let layerDepth = Double(layerIndex) / Double(layerCount)
+            let layerDensity = 1.0 - (layerDepth * 0.4) // Deeper layers are slightly less dense
+            let layerPhaseOffset = Double(layerIndex) * 2.0 // Different animation phases
 
-            // Create a flowing band path
-            let path = createFlowingBand(
-                center: center,
-                radius: radius,
-                phase: phase + bandSeed,
-                frequencyOffset: frequencyOffset,
-                amplitude: amplitude,
-                bandIndex: i,
-                totalBands: bandCount
-            )
+            // Generate 4-7 flowing bands per layer (increased from 3-5 for thickness)
+            let bandCount = rng.nextInt(min: 4, max: 7)
 
-            // Draw the band with semi-transparent blue/green color
-            // Color varies slightly based on seed for variety
-            let hue = 0.5 + rng.nextDouble(min: -0.1, max: 0.1) // Blue-green range
-            let color = Color(hue: hue, saturation: 0.6, brightness: 0.8)
+            for i in 0..<bandCount {
+                // Each band has slightly different properties based on seed
+                let bandSeed = Double(rng.nextInt(min: 0, max: 1000))
+                let frequencyOffset = rng.nextDouble(min: 0, max: 2 * .pi)
+                let amplitude = rng.nextDouble(min: 0.4, max: 0.8) // Increased amplitude for more movement
+                let bandWidth = CGFloat(rng.nextDouble(min: 5, max: 12)) // Thicker bands
 
-            // Opacity scales with density and varies per band
-            let baseOpacity = density * 0.15 * (1.0 - Double(i) / Double(bandCount) * 0.3)
+                // Create a flowing band path
+                let path = createFlowingBand(
+                    center: center,
+                    radius: radius,
+                    phase: phase * 1.5 + bandSeed + layerPhaseOffset, // Faster animation (1.5x speed)
+                    frequencyOffset: frequencyOffset,
+                    amplitude: amplitude,
+                    bandIndex: i,
+                    totalBands: bandCount,
+                    layerDepth: layerDepth
+                )
 
-            context.stroke(
-                path,
-                with: .color(color.opacity(baseOpacity)),
-                lineWidth: bandWidth
-            )
+                // Draw the band with semi-transparent blue/green color
+                // Color varies slightly based on seed and layer for variety
+                let hue = 0.5 + rng.nextDouble(min: -0.1, max: 0.1) + (layerDepth * 0.05) // Blue-green range
+                let saturation = 0.6 + (layerDepth * 0.2) // Deeper layers more saturated
+                let color = Color(hue: hue, saturation: saturation, brightness: 0.8)
 
-            // Add a softer, wider version for glow effect
-            context.stroke(
-                path,
-                with: .color(color.opacity(baseOpacity * 0.3)),
-                lineWidth: bandWidth * 2
-            )
+                // Opacity scales with density and varies per band and layer
+                let baseOpacity = density * layerDensity * 0.25 * (1.0 - Double(i) / Double(bandCount) * 0.3)
+
+                context.stroke(
+                    path,
+                    with: .color(color.opacity(baseOpacity)),
+                    lineWidth: bandWidth
+                )
+
+                // Add a softer, wider version for glow effect
+                context.stroke(
+                    path,
+                    with: .color(color.opacity(baseOpacity * 0.4)),
+                    lineWidth: bandWidth * 2.5
+                )
+
+                // Add an even softer outer glow for depth
+                context.stroke(
+                    path,
+                    with: .color(color.opacity(baseOpacity * 0.15)),
+                    lineWidth: bandWidth * 4
+                )
+            }
         }
 
         // Add subtle sparkle/shimmer points that drift across the surface
-        if density > 0.3 {
+        if density > 0.2 { // Lower threshold for more shimmer
             drawShimmerPoints(in: context, center: center, radius: radius, phase: phase, rng: &rng)
         }
     }
@@ -117,7 +136,8 @@ struct OzoneLayerView: View {
         frequencyOffset: Double,
         amplitude: Double,
         bandIndex: Int,
-        totalBands: Int
+        totalBands: Int,
+        layerDepth: Double
     ) -> Path {
         var path = Path()
 
@@ -132,10 +152,12 @@ struct OzoneLayerView: View {
             let wave1 = sin(angle * 3 + phase + frequencyOffset) * amplitude
             let wave2 = sin(angle * 5 - phase * 0.7 + frequencyOffset * 1.3) * amplitude * 0.5
             let wave3 = cos(angle * 2 + phase * 1.5) * amplitude * 0.3
+            let wave4 = sin(angle * 7 + phase * 0.5) * amplitude * 0.25 // Additional wave for complexity
 
-            // Combine waves and offset each band
-            let bandOffset = (Double(bandIndex) / Double(totalBands)) * 0.4 - 0.2
-            let radiusMultiplier = 0.85 + wave1 + wave2 + wave3 + bandOffset
+            // Combine waves and offset each band and layer
+            let bandOffset = (Double(bandIndex) / Double(totalBands)) * 0.5 - 0.25
+            let layerOffset = layerDepth * 0.15 // Separate layers radially
+            let radiusMultiplier = 0.82 + wave1 + wave2 + wave3 + wave4 + bandOffset + layerOffset
 
             let distance = radius * radiusMultiplier
             let x = center.x + cos(angle) * distance

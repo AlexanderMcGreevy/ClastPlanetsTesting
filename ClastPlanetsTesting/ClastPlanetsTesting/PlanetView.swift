@@ -16,10 +16,18 @@ struct PlanetView: View {
             // Atmosphere layer (outermost)
             atmosphereLayer
 
-            // Rings (behind planet)
+            // Back rings (behind planet)
             if planet.ringType != .none {
-                ringsLayer
-                    .rotationEffect(.degrees(30)) // Tilt rings for perspective
+                if planet.ringType == .crossed {
+                    // Crossed rings: two sets at different angles
+                    backRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt))
+                    backRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt + 90))
+                } else {
+                    backRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt))
+                }
             }
 
             // Planet body
@@ -31,6 +39,20 @@ struct PlanetView: View {
                 radius: planetRadius,
                 density: planet.ozoneDensity
             )
+
+            // Front rings (in front of planet)
+            if planet.ringType != .none {
+                if planet.ringType == .crossed {
+                    // Crossed rings: two sets at different angles
+                    frontRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt))
+                    frontRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt + 90))
+                } else {
+                    frontRingsLayer
+                        .rotationEffect(.degrees(planet.ringTilt))
+                }
+            }
 
             // Moons
             if planet.moonCount > 0 {
@@ -120,6 +142,54 @@ struct PlanetView: View {
             }
             .frame(width: planetRadius * 2, height: planetRadius * 2)
             .clipShape(Circle())
+
+        case .crystalline:
+            // Geometric faceted appearance with sharp edges
+            ZStack {
+                ForEach(0..<12) { index in
+                    Diamond()
+                        .fill(planet.accentColor.opacity(0.4))
+                        .frame(width: planetRadius / 3, height: planetRadius / 3)
+                        .rotationEffect(.degrees(Double(index) * 30))
+                        .offset(craterOffset(index: index))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .nebulous:
+            // Cloudy, ethereal gas effect with multiple layers
+            ZStack {
+                ForEach(0..<5) { index in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [planet.primaryColor.opacity(0.6), planet.secondaryColor.opacity(0.3), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: planetRadius * 0.8
+                            )
+                        )
+                        .frame(width: planetRadius * 1.5, height: planetRadius * 1.5)
+                        .offset(craterOffset(index: index * 2))
+                        .blur(radius: 8)
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .prismatic:
+            // Rainbow refraction effect
+            Circle()
+                .fill(
+                    AngularGradient(
+                        colors: [.red, .orange, .yellow, .green, .cyan, .blue, .purple, .pink, .red],
+                        center: .center
+                    )
+                )
+                .frame(width: planetRadius * 2, height: planetRadius * 2)
+                .opacity(0.7)
+                .blur(radius: 2)
         }
     }
 
@@ -184,65 +254,235 @@ struct PlanetView: View {
                     .frame(width: planetRadius * 2.6, height: planetRadius * 2.6)
                     .blur(radius: 5)
             }
+
+        case .storm:
+            // Turbulent swirling storm effect
+            ZStack {
+                ForEach(0..<3) { index in
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: [planet.primaryColor.opacity(0.6), planet.secondaryColor.opacity(0.4), Color.clear, planet.accentColor.opacity(0.5)],
+                                center: .center
+                            ),
+                            lineWidth: 4
+                        )
+                        .frame(width: planetRadius * (2.3 + Double(index) * 0.2), height: planetRadius * (2.3 + Double(index) * 0.2))
+                        .rotationEffect(.degrees(Double(index) * 45))
+                        .blur(radius: 6)
+                }
+            }
+
+        case .ethereal:
+            // Ghostly, translucent shimmer
+            ZStack {
+                ForEach(0..<4) { index in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.white.opacity(0.3), planet.primaryColor.opacity(0.2), Color.clear],
+                                center: .center,
+                                startRadius: planetRadius * 0.8,
+                                endRadius: planetRadius * (1.3 + Double(index) * 0.15)
+                            )
+                        )
+                        .frame(width: planetRadius * (2.6 + Double(index) * 0.3), height: planetRadius * (2.6 + Double(index) * 0.3))
+                        .opacity(0.7 - Double(index) * 0.15)
+                        .blur(radius: 10)
+                }
+            }
         }
     }
 
-    // MARK: - Rings Layer
+    // MARK: - Back Rings Layer (behind planet)
 
     @ViewBuilder
-    private var ringsLayer: some View {
+    private var backRingsLayer: some View {
+        backRingsContent
+    }
+
+    // MARK: - Front Rings Layer (in front of planet)
+
+    @ViewBuilder
+    private var frontRingsLayer: some View {
+        frontRingsContent
+    }
+
+    // MARK: - Back Rings Content (bottom arc)
+
+    @ViewBuilder
+    private var backRingsContent: some View {
         switch planet.ringType {
         case .none:
             EmptyView()
 
         case .simple:
-            // Single ring
-            Ellipse()
-                .stroke(planet.accentColor.opacity(0.6), lineWidth: 4)
-                .frame(width: planetRadius * 2.8, height: planetRadius * 0.8)
+            RingArc(
+                width: planetRadius * 2.8,
+                height: planetRadius * 0.8,
+                color: planet.accentColor.opacity(0.6),
+                lineWidth: 4 * planet.ringWidth,
+                startAngle: .degrees(0),
+                endAngle: .degrees(180)
+            )
 
         case .double:
-            // Two rings
             ZStack {
-                Ellipse()
-                    .stroke(planet.accentColor.opacity(0.6), lineWidth: 4)
-                    .frame(width: planetRadius * 2.8, height: planetRadius * 0.8)
-
-                Ellipse()
-                    .stroke(planet.secondaryColor.opacity(0.5), lineWidth: 3)
-                    .frame(width: planetRadius * 3.2, height: planetRadius * 1.0)
+                RingArc(
+                    width: planetRadius * 2.8,
+                    height: planetRadius * 0.8,
+                    color: planet.accentColor.opacity(0.6),
+                    lineWidth: 4 * planet.ringWidth,
+                    startAngle: .degrees(0),
+                    endAngle: .degrees(180)
+                )
+                RingArc(
+                    width: planetRadius * 3.2,
+                    height: planetRadius * 1.0,
+                    color: planet.secondaryColor.opacity(0.5),
+                    lineWidth: 3 * planet.ringWidth,
+                    startAngle: .degrees(0),
+                    endAngle: .degrees(180)
+                )
             }
 
         case .chunky:
-            // Thicker, more prominent rings
             ZStack {
-                Ellipse()
-                    .fill(
-                        LinearGradient(
-                            colors: [planet.accentColor.opacity(0.7), planet.secondaryColor.opacity(0.4)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: planetRadius * 3.0, height: planetRadius * 0.6)
-
-                Ellipse()
-                    .stroke(planet.accentColor, lineWidth: 2)
-                    .frame(width: planetRadius * 3.0, height: planetRadius * 0.6)
+                RingArc(
+                    width: planetRadius * 3.0,
+                    height: planetRadius * 0.6,
+                    gradient: LinearGradient(
+                        colors: [planet.accentColor.opacity(0.7), planet.secondaryColor.opacity(0.4)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 12 * planet.ringWidth,
+                    startAngle: .degrees(0),
+                    endAngle: .degrees(180)
+                )
+                RingArc(
+                    width: planetRadius * 3.0,
+                    height: planetRadius * 0.6,
+                    color: planet.accentColor,
+                    lineWidth: 2 * planet.ringWidth,
+                    startAngle: .degrees(0),
+                    endAngle: .degrees(180)
+                )
             }
 
         case .rainbow:
-            // Multiple colorful rings
             ZStack {
                 ForEach(0..<4) { index in
-                    Ellipse()
-                        .stroke(rainbowColor(index: index).opacity(0.6), lineWidth: 2)
-                        .frame(
-                            width: planetRadius * (2.6 + Double(index) * 0.2),
-                            height: planetRadius * (0.6 + Double(index) * 0.1)
-                        )
+                    RingArc(
+                        width: planetRadius * (2.6 + Double(index) * 0.2),
+                        height: planetRadius * (0.6 + Double(index) * 0.1),
+                        color: rainbowColor(index: index).opacity(0.6),
+                        lineWidth: 2 * planet.ringWidth,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(180)
+                    )
                 }
             }
+
+        case .crossed:
+            // Crossed rings rendered same as simple but drawn at two angles (handled in body)
+            RingArc(
+                width: planetRadius * 2.8,
+                height: planetRadius * 0.8,
+                color: planet.accentColor.opacity(0.6),
+                lineWidth: 4 * planet.ringWidth,
+                startAngle: .degrees(0),
+                endAngle: .degrees(180)
+            )
+        }
+    }
+
+    // MARK: - Front Rings Content (top arc)
+
+    @ViewBuilder
+    private var frontRingsContent: some View {
+        switch planet.ringType {
+        case .none:
+            EmptyView()
+
+        case .simple:
+            RingArc(
+                width: planetRadius * 2.8,
+                height: planetRadius * 0.8,
+                color: planet.accentColor.opacity(0.6),
+                lineWidth: 4 * planet.ringWidth,
+                startAngle: .degrees(180),
+                endAngle: .degrees(360)
+            )
+
+        case .double:
+            ZStack {
+                RingArc(
+                    width: planetRadius * 2.8,
+                    height: planetRadius * 0.8,
+                    color: planet.accentColor.opacity(0.6),
+                    lineWidth: 4 * planet.ringWidth,
+                    startAngle: .degrees(180),
+                    endAngle: .degrees(360)
+                )
+                RingArc(
+                    width: planetRadius * 3.2,
+                    height: planetRadius * 1.0,
+                    color: planet.secondaryColor.opacity(0.5),
+                    lineWidth: 3 * planet.ringWidth,
+                    startAngle: .degrees(180),
+                    endAngle: .degrees(360)
+                )
+            }
+
+        case .chunky:
+            ZStack {
+                RingArc(
+                    width: planetRadius * 3.0,
+                    height: planetRadius * 0.6,
+                    gradient: LinearGradient(
+                        colors: [planet.accentColor.opacity(0.7), planet.secondaryColor.opacity(0.4)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 12 * planet.ringWidth,
+                    startAngle: .degrees(180),
+                    endAngle: .degrees(360)
+                )
+                RingArc(
+                    width: planetRadius * 3.0,
+                    height: planetRadius * 0.6,
+                    color: planet.accentColor,
+                    lineWidth: 2 * planet.ringWidth,
+                    startAngle: .degrees(180),
+                    endAngle: .degrees(360)
+                )
+            }
+
+        case .rainbow:
+            ZStack {
+                ForEach(0..<4) { index in
+                    RingArc(
+                        width: planetRadius * (2.6 + Double(index) * 0.2),
+                        height: planetRadius * (0.6 + Double(index) * 0.1),
+                        color: rainbowColor(index: index).opacity(0.6),
+                        lineWidth: 2 * planet.ringWidth,
+                        startAngle: .degrees(180),
+                        endAngle: .degrees(360)
+                    )
+                }
+            }
+
+        case .crossed:
+            // Crossed rings rendered same as simple but drawn at two angles (handled in body)
+            RingArc(
+                width: planetRadius * 2.8,
+                height: planetRadius * 0.8,
+                color: planet.accentColor.opacity(0.6),
+                lineWidth: 4 * planet.ringWidth,
+                startAngle: .degrees(180),
+                endAngle: .degrees(360)
+            )
         }
     }
 
@@ -345,6 +585,132 @@ struct PlanetView: View {
     private func rainbowColor(index: Int) -> Color {
         let colors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple]
         return colors[index % colors.count]
+    }
+}
+
+// MARK: - Diamond Shape
+
+/// Custom diamond shape for crystalline planets
+struct Diamond: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let halfWidth = rect.width / 2
+        let halfHeight = rect.height / 2
+
+        // Top point
+        path.move(to: CGPoint(x: center.x, y: center.y - halfHeight))
+        // Right point
+        path.addLine(to: CGPoint(x: center.x + halfWidth, y: center.y))
+        // Bottom point
+        path.addLine(to: CGPoint(x: center.x, y: center.y + halfHeight))
+        // Left point
+        path.addLine(to: CGPoint(x: center.x - halfWidth, y: center.y))
+        // Close path
+        path.closeSubpath()
+
+        return path
+    }
+}
+
+// MARK: - Ring Arc Shape
+
+/// Custom shape for drawing elliptical arcs (for planet rings)
+struct RingArcShape: Shape {
+    let width: CGFloat
+    let height: CGFloat
+    let startAngle: Angle
+    let endAngle: Angle
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radiusX = width / 2
+        let radiusY = height / 2
+
+        // Generate points along the elliptical arc
+        let startRadians = startAngle.radians
+        let endRadians = endAngle.radians
+
+        // Determine if we need to wrap around (e.g., 270° to 90°)
+        var currentAngle = startRadians
+        let angleIncrement = 0.01 // Small increment for smooth arc
+
+        // Move to starting point
+        let startX = center.x + cos(currentAngle) * radiusX
+        let startY = center.y + sin(currentAngle) * radiusY
+        path.move(to: CGPoint(x: startX, y: startY))
+
+        // Draw arc
+        while currentAngle < endRadians {
+            currentAngle += angleIncrement
+            if currentAngle > endRadians {
+                currentAngle = endRadians
+            }
+
+            let x = center.x + cos(currentAngle) * radiusX
+            let y = center.y + sin(currentAngle) * radiusY
+            path.addLine(to: CGPoint(x: x, y: y))
+        }
+
+        return path
+    }
+}
+
+/// View wrapper for RingArc that supports both colors and gradients
+struct RingArc: View {
+    let width: CGFloat
+    let height: CGFloat
+    let startAngle: Angle
+    let endAngle: Angle
+    let lineWidth: CGFloat
+
+    // Support either color or gradient
+    var color: Color?
+    var gradient: LinearGradient?
+
+    init(width: CGFloat, height: CGFloat, color: Color, lineWidth: CGFloat, startAngle: Angle, endAngle: Angle) {
+        self.width = width
+        self.height = height
+        self.color = color
+        self.gradient = nil
+        self.lineWidth = lineWidth
+        self.startAngle = startAngle
+        self.endAngle = endAngle
+    }
+
+    init(width: CGFloat, height: CGFloat, gradient: LinearGradient, lineWidth: CGFloat, startAngle: Angle, endAngle: Angle) {
+        self.width = width
+        self.height = height
+        self.color = nil
+        self.gradient = gradient
+        self.lineWidth = lineWidth
+        self.startAngle = startAngle
+        self.endAngle = endAngle
+    }
+
+    var body: some View {
+        if let gradient = gradient {
+            RingArcShape(
+                width: width,
+                height: height,
+                startAngle: startAngle,
+                endAngle: endAngle
+            )
+            .stroke(gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+            .frame(width: width, height: height)
+        } else {
+            RingArcShape(
+                width: width,
+                height: height,
+                startAngle: startAngle,
+                endAngle: endAngle
+            )
+            .stroke(color ?? .clear, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+            .frame(width: width, height: height)
+        }
     }
 }
 

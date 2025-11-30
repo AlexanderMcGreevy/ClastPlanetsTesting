@@ -38,6 +38,11 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Galaxy", systemImage: "globe.americas.fill")
                 }
+
+            TraitDictionaryView()
+                .tabItem {
+                    Label("Dictionary", systemImage: "book.closed")
+                }
         }
     }
 }

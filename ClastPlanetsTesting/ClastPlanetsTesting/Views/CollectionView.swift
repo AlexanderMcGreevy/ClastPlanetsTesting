@@ -12,6 +12,10 @@ enum PlanetSortOption: String, CaseIterable {
     case rarity = "Rarity"
     case name = "Name"
     case favorites = "Favorites"
+    case size = "Size"
+    case moons = "Moons"
+    case discovered = "Recently Discovered"
+    case baseType = "Base Type"
 }
 
 struct CollectionView: View {
@@ -60,7 +64,7 @@ struct CollectionView: View {
             viewModel.sortedPlanets
         case .rarity:
             viewModel.discoveredPlanets.sorted { p1, p2 in
-                let order: [Rarity] = [.legendary, .rare, .uncommon, .common]
+                let order: [Rarity] = [.mythic, .legendary, .rare, .uncommon, .common]
                 let index1 = order.firstIndex(of: p1.rarity) ?? order.count
                 let index2 = order.firstIndex(of: p2.rarity) ?? order.count
                 return index1 < index2
@@ -76,6 +80,14 @@ struct CollectionView: View {
                 }
                 return p1.distanceDiscoveredAt < p2.distanceDiscoveredAt
             }
+        case .size:
+            viewModel.discoveredPlanets.sorted { $0.size > $1.size }
+        case .moons:
+            viewModel.discoveredPlanets.sorted { $0.moonCount > $1.moonCount }
+        case .discovered:
+            viewModel.discoveredPlanets.sorted { $0.distanceDiscoveredAt > $1.distanceDiscoveredAt }
+        case .baseType:
+            viewModel.discoveredPlanets.sorted { $0.baseType.rawValue < $1.baseType.rawValue }
         }
 
         if showFavoritesOnly {
@@ -128,6 +140,16 @@ struct CollectionView: View {
                             )
                         }
                         .tint(.yellow)
+
+                        Button {
+                            viewModel.toggleGalaxy(planet)
+                        } label: {
+                            Label(
+                                viewModel.isInGalaxy(planet) ? "Remove from Galaxy" : "Add to Galaxy",
+                                systemImage: viewModel.isInGalaxy(planet) ? "minus.circle" : "plus.circle"
+                            )
+                        }
+                        .tint(viewModel.isInGalaxy(planet) ? .red : .blue)
                     }
                 }
             } header: {
@@ -150,7 +172,7 @@ struct PlanetRow: View {
     var body: some View {
         HStack(spacing: 16) {
             // Small planet thumbnail
-            PlanetView(planet: planet, size: 60)
+            PlanetView(planet: planet, size: 60, animated: false)
 
             // Planet info
             VStack(alignment: .leading, spacing: 6) {
@@ -285,8 +307,33 @@ struct PlanetDetailView: View {
                         detailRow(
                             icon: "arrow.up.left.and.arrow.down.right",
                             label: "Size",
-                            value: String(format: "%.2f", planet.size)
+                            value: "\(planet.sizeClass.displayName) (\(String(format: "%.2f", planet.size)))",
+                            badge: planet.sizeClass.rarity
                         )
+                    }
+
+                    Divider()
+
+                    // Galaxy Toggle
+                    Button {
+                        viewModel.toggleGalaxy(planet)
+                    } label: {
+                        HStack {
+                            Image(systemName: viewModel.isInGalaxy(planet) ? "checkmark.circle.fill" : "plus.circle")
+                                .foregroundStyle(viewModel.isInGalaxy(planet) ? .green : .blue)
+                            Text(viewModel.isInGalaxy(planet) ? "In Galaxy" : "Add to Galaxy")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if viewModel.isInGalaxy(planet) {
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .font(.subheadline)
+                        .padding()
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(10)
                     }
 
                     Divider()

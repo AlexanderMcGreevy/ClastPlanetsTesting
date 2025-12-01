@@ -21,27 +21,7 @@ class PlanetGenerator {
         "one", "two", "nexus", "core", "haven", "reach", "point"
     ]
 
-    // MARK: - Color Palettes by Rarity
-
-    private static let commonColors = [
-        "808080", "A0A0A0", "696969", "909090", "787878"
-    ]
-
-    private static let uncommonColors = [
-        "4A90E2", "50C878", "E8B44D", "9370DB", "CD5C5C"
-    ]
-
-    private static let rareColors = [
-        "FF6B9D", "4ECDC4", "FFE66D", "A8E6CF", "FF8B94"
-    ]
-
-    private static let legendaryColors = [
-        "FF00FF", "00FFFF", "FFD700", "FF1493", "7B68EE", "00FF7F"
-    ]
-
-    private static let mythicColors = [
-        "FF4500", "FF8C00", "FFA500", "FFB400", "FF6347", "FF7F50"
-    ]
+    // MARK: - Color Generation (Random)
 
     // MARK: - Main Generation Function
 
@@ -62,15 +42,16 @@ class PlanetGenerator {
         let ringType = generateRingType(rarity: rarity, rng: &rng)
         let moonCount = generateMoonCount(rarity: rarity, rng: &rng)
         let atmosphereType = generateAtmosphereType(rarity: rarity, rng: &rng)
-        let size = rng.nextDouble(min: 0.8, max: 1.5)
+        let sizeClass = generateSizeClass(rarity: rarity, rng: &rng)
+        let size = rng.nextDouble(min: sizeClass.sizeRange.min, max: sizeClass.sizeRange.max)
         let ozoneDensity = generateOzoneDensity(rarity: rarity, rng: &rng)
 
         // Generate ring properties
         let ringTilt = rng.nextDouble(min: 0, max: 360)
         let ringWidth = rng.nextDouble(min: 0.5, max: 2.0)
 
-        // Generate colors
-        let colors = generateColors(rarity: rarity, rng: &rng)
+        // Generate random colors
+        let colors = generateRandomColors(rng: &rng)
 
         // Generate name
         let name = generateName(rng: &rng)
@@ -85,6 +66,7 @@ class PlanetGenerator {
             ringType: ringType,
             moonCount: moonCount,
             atmosphereType: atmosphereType,
+            sizeClass: sizeClass,
             size: size,
             ozoneDensity: ozoneDensity,
             ringTilt: ringTilt,
@@ -251,27 +233,56 @@ class PlanetGenerator {
         }
     }
 
-    private static func generateColors(rarity: Rarity, rng: inout SeededRandomGenerator) -> (primary: String, secondary: String, accent: String) {
-        let palette: [String]
+    private static func generateSizeClass(rarity: Rarity, rng: inout SeededRandomGenerator) -> SizeClass {
+        let roll = rng.nextDouble()
 
         switch rarity {
         case .common:
-            palette = commonColors
+            // Common planets are mostly medium-sized
+            if roll < 0.70 { return .medium }
+            if roll < 0.85 { return .small }
+            return .large
         case .uncommon:
-            palette = uncommonColors
+            // Uncommon planets have more variety
+            if roll < 0.25 { return .small }
+            if roll < 0.50 { return .medium }
+            if roll < 0.75 { return .large }
+            return .tiny
         case .rare:
-            palette = rareColors
+            // Rare planets can be quite varied
+            if roll < 0.20 { return .tiny }
+            if roll < 0.40 { return .small }
+            if roll < 0.60 { return .large }
+            if roll < 0.80 { return .huge }
+            return .medium
         case .legendary:
-            palette = legendaryColors
+            // Legendary planets favor extreme sizes
+            if roll < 0.30 { return .huge }
+            if roll < 0.60 { return .gigantic }
+            if roll < 0.80 { return .tiny }
+            return .large
         case .mythic:
-            palette = mythicColors
+            // Mythic planets are the extremes
+            if roll < 0.50 { return .titanic }
+            return .miniscule
         }
+    }
 
-        let primary = palette.randomElement(using: &rng)!
-        let secondary = palette.randomElement(using: &rng)!
-        let accent = palette.randomElement(using: &rng)!
+    private static func generateRandomColors(rng: inout SeededRandomGenerator) -> (primary: String, secondary: String, accent: String) {
+        // Generate completely random colors with full RGB spectrum
+        let primary = generateRandomColorHex(rng: &rng)
+        let secondary = generateRandomColorHex(rng: &rng)
+        let accent = generateRandomColorHex(rng: &rng)
 
         return (primary, secondary, accent)
+    }
+
+    private static func generateRandomColorHex(rng: inout SeededRandomGenerator) -> String {
+        let r = rng.nextInt(min: 0, max: 255)
+        let g = rng.nextInt(min: 0, max: 255)
+        let b = rng.nextInt(min: 0, max: 255)
+
+        return String(format: "%02X%02X%02X", r, g, b)
     }
 
     private static func generateName(rng: inout SeededRandomGenerator) -> String {

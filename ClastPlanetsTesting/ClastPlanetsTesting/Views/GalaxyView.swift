@@ -10,8 +10,10 @@ import SwiftUI
 struct GalaxyView: View {
     @Environment(GalaxyViewModel.self) private var viewModel
     @State private var showingPlanetPicker = false
-    @State private var selectedPlanetIDs: Set<UUID> = []
+    @State private var isEditMode = false
+    @State private var selectedPlanetForInfo: Planet? = nil
     @State private var zoomScale: CGFloat = 1.0
+    @State private var baseZoomScale: CGFloat = 1.0
     @State private var ringSpacing: CGFloat = 1.0 // Adjustable ring spacing multiplier
     @State private var planetOrbits: [UUID: Int] = [:] // Track which orbit each planet is on
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -34,7 +36,12 @@ struct GalaxyView: View {
                             .gesture(
                                 MagnificationGesture()
                                     .onChanged { value in
-                                        zoomScale = min(max(value, 0.5), 3.0)
+                                        zoomScale = min(max(baseZoomScale * value, 0.5), 3.0)
+                                    }
+                                    .onEnded { value in
+                                        // Update base scale when gesture ends
+                                        baseZoomScale = min(max(baseZoomScale * value, 0.5), 3.0)
+                                        zoomScale = baseZoomScale
                                     }
                             )
 
@@ -46,31 +53,59 @@ struct GalaxyView: View {
             }
             .navigationTitle("My Galaxy")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        showingPlanetPicker = true
+                        withAnimation {
+                            isEditMode.toggle()
+                        }
                     } label: {
-                        Image(systemName: "plus.circle.fill")
+                        Text(isEditMode ? "Done" : "Edit")
                             .foregroundStyle(.white)
                     }
                     .disabled(viewModel.discoveredPlanets.isEmpty)
                 }
             }
             .sheet(isPresented: $showingPlanetPicker) {
-                SimplePlanetSelectionSheet(selectedPlanetIDs: $selectedPlanetIDs)
+                SimplePlanetSelectionSheet()
                     .environment(viewModel)
             }
+            .sheet(item: $selectedPlanetForInfo) { planet in
+                NavigationStack {
+                    PlanetDetailView(planet: planet)
+                        .environment(viewModel)
+                }
+            }
+            .onChange(of: viewModel.galaxyPlanetIDs) { oldValue, newValue in
+                // Update planet orbits when selection changes
+                updatePlanetOrbits()
+            }
             .onAppear {
-                // Auto-select up to 6 planets on first load
-                if selectedPlanetIDs.isEmpty {
-                    selectedPlanetIDs = Set(viewModel.sortedPlanets.prefix(min(6, viewModel.sortedPlanets.count)).map { $0.id })
+                // Initialize planet orbits on first load
+                updatePlanetOrbits()
+            }
+        }
+    }
+
+    // MARK: - Helper Functions
+
+    /// Updates planet orbits based on current selection
+    private func updatePlanetOrbits() {
+        // Remove planets that are no longer selected
+        planetOrbits = planetOrbits.filter { viewModel.galaxyPlanetIDs.contains($0.key) }
+
+        // Get the selected planets in sorted order (by discovery distance)
+        let selectedPlanets = viewModel.sortedPlanets.filter { viewModel.galaxyPlanetIDs.contains($0.id) }
+
+        // Assign orbits to newly selected planets
+        for planet in selectedPlanets {
+            if planetOrbits[planet.id] == nil {
+                // Find the next available orbit index
+                let usedOrbits = Set(planetOrbits.values)
+                var orbitIndex = 0
+                while usedOrbits.contains(orbitIndex) {
+                    orbitIndex += 1
                 }
-                // Initialize planet orbits
-                if planetOrbits.isEmpty {
-                    for (index, planet) in viewModel.discoveredPlanets.prefix(selectedPlanetIDs.count).enumerated() {
-                        planetOrbits[planet.id] = index
-                    }
-                }
+                planetOrbits[planet.id] = orbitIndex
             }
         }
     }
@@ -83,7 +118,7 @@ struct GalaxyView: View {
             let centerY = geometry.size.height / 2
             let center = CGPoint(x: centerX, y: centerY)
             let maxRadius = min(geometry.size.width, geometry.size.height) * 0.45
-            let selectedPlanets = viewModel.discoveredPlanets.filter { selectedPlanetIDs.contains($0.id) }
+            let selectedPlanets = viewModel.discoveredPlanets.filter { viewModel.galaxyPlanetIDs.contains($0.id) }
 
             // Calculate unique orbits
             let maxOrbit = planetOrbits.values.max() ?? 0
@@ -129,8 +164,12 @@ struct GalaxyView: View {
                             maxRadius: maxRadius,
                             ringSpacing: ringSpacing,
                             reduceMotion: reduceMotion,
+                            isEditMode: isEditMode,
                             onOrbitChange: { newOrbit in
                                 planetOrbits[planet.id] = newOrbit
+                            },
+                            onTap: {
+                                selectedPlanetForInfo = planet
                             }
                         )
                     }
@@ -145,55 +184,59 @@ struct GalaxyView: View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(selectedPlanetIDs.count) Planet\(selectedPlanetIDs.count == 1 ? "" : "s") in Orbit")
+                    Text("\(viewModel.galaxyPlanetIDs.count) Planet\(viewModel.galaxyPlanetIDs.count == 1 ? "" : "s") in Orbit")
                         .font(.headline)
                         .foregroundStyle(.white)
 
-                    Text("Zoom: \(Int(zoomScale * 100))% • Pinch to zoom")
+                    Text(isEditMode ? "Tap to drag • Edit mode" : "Tap to view • Zoom: \(Int(zoomScale * 100))%")
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.6))
                 }
 
                 Spacer()
 
-                Button {
-                    showingPlanetPicker = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "slider.horizontal.3")
-                        Text("Manage")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.blue.opacity(0.6))
-                    .cornerRadius(8)
-                }
-            }
-
-            // Ring spacing control
-            VStack(spacing: 8) {
-                HStack {
-                    Image(systemName: "circle.dotted")
-                        .foregroundStyle(.white.opacity(0.7))
-                    Text("Ring Spacing")
+                if isEditMode {
+                    Button {
+                        showingPlanetPicker = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "slider.horizontal.3")
+                            Text("Manage")
+                        }
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.8))
-                    Spacer()
-                    Text("\(Int(ringSpacing * 100))%")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.6))
+                        .cornerRadius(8)
+                    }
                 }
-
-                Slider(value: $ringSpacing, in: 0.5...2.0, step: 0.1)
-                    .tint(.blue)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .background(Color.white.opacity(0.1))
-            .cornerRadius(10)
+
+            // Ring spacing control (only in edit mode)
+            if isEditMode {
+                VStack(spacing: 8) {
+                    HStack {
+                        Image(systemName: "circle.dotted")
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text("Ring Spacing")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+                        Spacer()
+                        Text("\(Int(ringSpacing * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .monospacedDigit()
+                    }
+
+                    Slider(value: $ringSpacing, in: 0.5...2.0, step: 0.1)
+                        .tint(.blue)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(10)
+            }
 
             // Quick stats
             ScrollView(.horizontal, showsIndicators: false) {
@@ -294,7 +337,9 @@ struct OrbitPlanetView: View {
     let maxRadius: CGFloat
     let ringSpacing: CGFloat
     let reduceMotion: Bool
+    let isEditMode: Bool
     let onOrbitChange: (Int) -> Void
+    let onTap: () -> Void
 
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
@@ -310,7 +355,8 @@ struct OrbitPlanetView: View {
     private func planetContent(time: Double) -> some View {
         let orbitRadius = calculateOrbitRadius()
         let position = calculatePosition(time: time, orbitRadius: orbitRadius)
-        let planetSize: CGFloat = 40 + CGFloat(orbitIndex) * 8
+        // Use the planet's actual size for rendering
+        let planetSize: CGFloat = CGFloat(planet.size) * 30 // Scale the size for display
 
         return ZStack {
             // Orbit path
@@ -319,14 +365,21 @@ struct OrbitPlanetView: View {
                 .frame(width: orbitRadius * 2, height: orbitRadius * 2)
                 .position(center)
 
-            // Planet with drag gesture
+            // Planet with gestures
             PlanetView(planet: planet, size: planetSize)
                 .position(position)
                 .scaleEffect(isDragging ? 1.3 : 1.0)
                 .animation(.spring(response: 0.3), value: isDragging)
-                .gesture(radialDragGesture)
+                .onTapGesture {
+                    if !isEditMode {
+                        onTap()
+                    }
+                }
+                .gesture(isEditMode ? radialDragGesture : nil)
                 .contextMenu {
-                    contextMenuContent
+                    if isEditMode {
+                        contextMenuContent
+                    }
                 }
         }
     }
@@ -417,7 +470,6 @@ struct OrbitPlanetView: View {
 struct SimplePlanetSelectionSheet: View {
     @Environment(GalaxyViewModel.self) private var viewModel
     @Environment(\.dismiss) private var dismiss
-    @Binding var selectedPlanetIDs: Set<UUID>
 
     var body: some View {
         NavigationStack {
@@ -442,9 +494,9 @@ struct SimplePlanetSelectionSheet: View {
                         ForEach(viewModel.sortedPlanets) { planet in
                             SimplePlanetCard(
                                 planet: planet,
-                                isSelected: selectedPlanetIDs.contains(planet.id),
+                                isSelected: viewModel.galaxyPlanetIDs.contains(planet.id),
                                 onToggle: {
-                                    togglePlanetSelection(planet)
+                                    viewModel.toggleGalaxy(planet)
                                 }
                             )
                         }
@@ -465,20 +517,12 @@ struct SimplePlanetSelectionSheet: View {
 
                 ToolbarItem(placement: .primaryAction) {
                     Button("Clear All") {
-                        selectedPlanetIDs.removeAll()
+                        viewModel.galaxyPlanetIDs.removeAll()
                     }
                     .foregroundStyle(.white)
-                    .disabled(selectedPlanetIDs.isEmpty)
+                    .disabled(viewModel.galaxyPlanetIDs.isEmpty)
                 }
             }
-        }
-    }
-
-    private func togglePlanetSelection(_ planet: Planet) {
-        if selectedPlanetIDs.contains(planet.id) {
-            selectedPlanetIDs.remove(planet.id)
-        } else if selectedPlanetIDs.count < 10 {
-            selectedPlanetIDs.insert(planet.id)
         }
     }
 }
@@ -496,7 +540,7 @@ struct SimplePlanetCard: View {
         } label: {
             VStack(spacing: 12) {
                 ZStack(alignment: .topTrailing) {
-                    PlanetView(planet: planet, size: 100)
+                    PlanetView(planet: planet, size: 100, animated: false)
 
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
@@ -551,7 +595,7 @@ struct PlanetSelectionCard: View {
         } label: {
             VStack(spacing: 8) {
                 ZStack(alignment: .topTrailing) {
-                    PlanetView(planet: planet, size: 100)
+                    PlanetView(planet: planet, size: 100, animated: false)
 
                     // Selection indicator
                     if isSelected {

@@ -15,6 +15,7 @@ class PersistenceManager {
     private let activePlanetIDKey = "active_planet_id"
     private let totalDistanceKey = "total_distance_travelled"
     private let favoritedPlanetIDsKey = "favorited_planet_ids"
+    private let galaxyPlanetIDsKey = "galaxy_planet_ids"
     private let customPlanetPositionsKey = "custom_planet_positions"
 
     private init() {}
@@ -71,6 +72,20 @@ class PersistenceManager {
 
     func loadFavoritedPlanetIDs() -> Set<UUID> {
         guard let uuidStrings = defaults.array(forKey: favoritedPlanetIDsKey) as? [String] else {
+            return []
+        }
+        return Set(uuidStrings.compactMap { UUID(uuidString: $0) })
+    }
+
+    // MARK: - Galaxy Planets
+
+    func saveGalaxyPlanetIDs(_ ids: Set<UUID>) {
+        let uuidStrings = ids.map { $0.uuidString }
+        defaults.set(uuidStrings, forKey: galaxyPlanetIDsKey)
+    }
+
+    func loadGalaxyPlanetIDs() -> Set<UUID> {
+        guard let uuidStrings = defaults.array(forKey: galaxyPlanetIDsKey) as? [String] else {
             return []
         }
         return Set(uuidStrings.compactMap { UUID(uuidString: $0) })

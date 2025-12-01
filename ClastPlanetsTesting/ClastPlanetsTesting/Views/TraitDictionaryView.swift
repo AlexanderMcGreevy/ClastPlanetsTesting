@@ -46,6 +46,17 @@ struct TraitDictionaryView: View {
                     }
                 }
 
+                // Size Class Section
+                Section("Size Classes") {
+                    ForEach(SizeClass.allCases, id: \.self) { sizeClass in
+                        TraitRow(
+                            name: sizeClass.displayName,
+                            rarity: sizeClass.rarity,
+                            isCollected: isSizeClassCollected(sizeClass)
+                        )
+                    }
+                }
+
                 // Statistics Section
                 Section("Collection Statistics") {
                     statisticsView
@@ -108,6 +119,10 @@ struct TraitDictionaryView: View {
         viewModel.discoveredPlanets.contains { $0.atmosphereType == atmosphereType }
     }
 
+    private func isSizeClassCollected(_ sizeClass: SizeClass) -> Bool {
+        viewModel.discoveredPlanets.contains { $0.sizeClass == sizeClass }
+    }
+
     private func collectedCount(for rarity: Rarity) -> Int {
         var count = 0
 
@@ -119,6 +134,9 @@ struct TraitDictionaryView: View {
 
         // Count atmosphere types (excluding .none)
         count += AtmosphereType.allCases.filter { $0 != .none && $0.rarity == rarity && isAtmosphereTypeCollected($0) }.count
+
+        // Count size classes
+        count += SizeClass.allCases.filter { $0.rarity == rarity && isSizeClassCollected($0) }.count
 
         return count
     }
@@ -134,6 +152,9 @@ struct TraitDictionaryView: View {
 
         // Count atmosphere types (excluding .none)
         count += AtmosphereType.allCases.filter { $0 != .none && $0.rarity == rarity }.count
+
+        // Count size classes
+        count += SizeClass.allCases.filter { $0.rarity == rarity }.count
 
         return count
     }

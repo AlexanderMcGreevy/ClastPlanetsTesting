@@ -100,6 +100,47 @@ enum AtmosphereType: String, Codable, CaseIterable {
     }
 }
 
+enum SizeClass: String, Codable, CaseIterable {
+    case miniscule
+    case tiny
+    case small
+    case medium
+    case large
+    case huge
+    case gigantic
+    case titanic
+
+    var displayName: String {
+        rawValue.capitalized
+    }
+
+    var sizeRange: (min: Double, max: Double) {
+        switch self {
+        case .miniscule: return (0.3, 0.5)
+        case .tiny: return (0.5, 0.7)
+        case .small: return (0.7, 0.9)
+        case .medium: return (0.9, 1.1)
+        case .large: return (1.1, 1.3)
+        case .huge: return (1.3, 1.6)
+        case .gigantic: return (1.6, 2.0)
+        case .titanic: return (2.0, 2.5)
+        }
+    }
+
+    var rarity: Rarity {
+        switch self {
+        case .miniscule: return .mythic
+        case .tiny: return .rare
+        case .small: return .uncommon
+        case .medium: return .common
+        case .large: return .uncommon
+        case .huge: return .rare
+        case .gigantic: return .legendary
+        case .titanic: return .mythic
+        }
+    }
+}
+
 // MARK: - Planet
 
 struct Planet: Identifiable, Codable, Equatable {
@@ -114,7 +155,8 @@ struct Planet: Identifiable, Codable, Equatable {
     let ringType: RingType
     let moonCount: Int // 0-3
     let atmosphereType: AtmosphereType
-    let size: Double // 0.8 to 1.5
+    let sizeClass: SizeClass
+    let size: Double // Actual size value within the sizeClass range
     let ozoneDensity: Double // 0.0 to 1.0 - controls ozone layer opacity/intensity
     let ringTilt: Double // Rotation angle for rings in degrees (0-360)
     let ringWidth: Double // Multiplier for ring line width (0.5-2.0)
@@ -139,7 +181,7 @@ struct Planet: Identifiable, Codable, Equatable {
 
     // Calculate overall rarity based on components
     var calculatedRarity: Rarity {
-        let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity]
+        let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
 
         // If any component is mythic, the planet is mythic
         if rarities.contains(.mythic) {
@@ -160,11 +202,11 @@ struct Planet: Identifiable, Codable, Equatable {
         let totalScore = rarityScores.reduce(0, +) + moonScore
 
         // Determine overall rarity
-        if totalScore >= 9 {
+        if totalScore >= 11 {
             return .legendary
-        } else if totalScore >= 6 {
+        } else if totalScore >= 7 {
             return .rare
-        } else if totalScore >= 3 {
+        } else if totalScore >= 4 {
             return .uncommon
         } else {
             return .common

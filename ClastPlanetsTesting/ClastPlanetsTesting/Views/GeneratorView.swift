@@ -118,7 +118,7 @@ struct GeneratorView: View {
                     traitRow(label: "Rings", value: planet.ringType.rawValue.capitalized)
                     traitRow(label: "Moons", value: "\(planet.moonCount)")
                     traitRow(label: "Atmosphere", value: planet.atmosphereType.rawValue.capitalized)
-                    traitRow(label: "Size", value: String(format: "%.2f", planet.size))
+                    traitRow(label: "Size", value: "\(planet.sizeClass.displayName) (\(String(format: "%.2f", planet.size)))")
                 }
             }
             .padding()

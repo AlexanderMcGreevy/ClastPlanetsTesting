@@ -10,6 +10,7 @@ import SwiftUI
 struct PlanetView: View {
     let planet: Planet
     var size: CGFloat = 200
+    var animated: Bool = true
 
     var body: some View {
         ZStack {
@@ -492,8 +493,8 @@ struct PlanetView: View {
 
     @ViewBuilder
     private var moonsLayer: some View {
-        if reduceMotion {
-            // Static moons when Reduce Motion is enabled
+        if reduceMotion || !animated {
+            // Static moons when Reduce Motion is enabled or animation is disabled
             moonsContent(rotationAngle: 0)
         } else {
             // Animated orbiting moons

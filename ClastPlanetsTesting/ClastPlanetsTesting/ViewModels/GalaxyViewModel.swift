@@ -38,6 +38,13 @@ class GalaxyViewModel {
         }
     }
 
+    // Planets selected for galaxy view
+    var galaxyPlanetIDs: Set<UUID> = [] {
+        didSet {
+            PersistenceManager.shared.saveGalaxyPlanetIDs(galaxyPlanetIDs)
+        }
+    }
+
     // Custom positions for planets in galaxy view (in normalized coordinates 0.0-1.0)
     var customPlanetPositions: [UUID: CGPoint] = [:] {
         didSet {
@@ -73,11 +80,17 @@ class GalaxyViewModel {
         discoveredPlanets = PersistenceManager.shared.loadPlanets()
         activePlanetID = PersistenceManager.shared.loadActivePlanetID()
         favoritedPlanetIDs = PersistenceManager.shared.loadFavoritedPlanetIDs()
+        galaxyPlanetIDs = PersistenceManager.shared.loadGalaxyPlanetIDs()
         customPlanetPositions = PersistenceManager.shared.loadCustomPlanetPositions()
 
         // If we have planets but no active planet, set the first one as active
         if activePlanetID == nil && !discoveredPlanets.isEmpty {
             activePlanetID = discoveredPlanets.first?.id
+        }
+
+        // Auto-select first 6 planets for galaxy if none selected
+        if galaxyPlanetIDs.isEmpty && !discoveredPlanets.isEmpty {
+            galaxyPlanetIDs = Set(sortedPlanets.prefix(min(6, sortedPlanets.count)).map { $0.id })
         }
     }
 
@@ -124,6 +137,30 @@ class GalaxyViewModel {
 
     func isFavorited(_ planet: Planet) -> Bool {
         favoritedPlanetIDs.contains(planet.id)
+    }
+
+    // MARK: - Galaxy Management
+
+    func addToGalaxy(_ planet: Planet) {
+        if galaxyPlanetIDs.count < 10 {
+            galaxyPlanetIDs.insert(planet.id)
+        }
+    }
+
+    func removeFromGalaxy(_ planet: Planet) {
+        galaxyPlanetIDs.remove(planet.id)
+    }
+
+    func toggleGalaxy(_ planet: Planet) {
+        if galaxyPlanetIDs.contains(planet.id) {
+            removeFromGalaxy(planet)
+        } else {
+            addToGalaxy(planet)
+        }
+    }
+
+    func isInGalaxy(_ planet: Planet) -> Bool {
+        galaxyPlanetIDs.contains(planet.id)
     }
 
     // MARK: - Custom Positions

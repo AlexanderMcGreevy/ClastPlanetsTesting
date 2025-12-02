@@ -26,23 +26,14 @@ struct MainTabView: View {
         TabView {
             GeneratorView()
                 .tabItem {
-                    Label("Generator", systemImage: "sparkles")
+                    Label("Generator", systemImage: "wand.and.stars")
                 }
 
-            CollectionView()
+            UnifiedPlanetView()
                 .tabItem {
-                    Label("Collection", systemImage: "square.stack.3d.up")
+                    Label("Planets", systemImage: "globe.americas.fill")
                 }
 
-            GalaxyView()
-                .tabItem {
-                    Label("Galaxy", systemImage: "globe.americas.fill")
-                }
-
-            TraitDictionaryView()
-                .tabItem {
-                    Label("Dictionary", systemImage: "book.closed")
-                }
         }
     }
 }

@@ -133,22 +133,42 @@ class PlanetGenerator {
     // MARK: - Component Generation
 
     private static func generateBaseType(rarity: Rarity, rng: inout SeededRandomGenerator) -> BaseType {
-        let availableTypes: [BaseType]
+        let roll = rng.nextDouble()
 
+        // Use the overall planet rarity to influence trait probabilities
         switch rarity {
         case .common:
-            availableTypes = [.solid]
+            // Early game: 70% common, 25% uncommon, 5% rare
+            if roll < 0.70 { return .solid }
+            if roll < 0.95 { return [.striped, .cratered].randomElement(using: &rng)! }
+            return .swirled
         case .uncommon:
-            availableTypes = [.solid, .striped, .cratered]
+            // 40% common, 40% uncommon, 15% rare, 5% legendary
+            if roll < 0.40 { return .solid }
+            if roll < 0.80 { return [.striped, .cratered].randomElement(using: &rng)! }
+            if roll < 0.95 { return .swirled }
+            return .volcanic
         case .rare:
-            availableTypes = [.striped, .cratered, .swirled]
+            // 10% common, 30% uncommon, 50% rare, 10% legendary
+            if roll < 0.10 { return .solid }
+            if roll < 0.40 { return [.striped, .cratered].randomElement(using: &rng)! }
+            if roll < 0.90 { return .swirled }
+            return .volcanic
         case .legendary:
-            availableTypes = [.swirled, .volcanic]
+            // 1% common, 10% uncommon, 30% rare, 50% legendary, 9% mythic
+            if roll < 0.01 { return .solid }
+            if roll < 0.11 { return [.striped, .cratered].randomElement(using: &rng)! }
+            if roll < 0.41 { return .swirled }
+            if roll < 0.91 { return .volcanic }
+            return [.crystalline, .nebulous, .prismatic].randomElement(using: &rng)!
         case .mythic:
-            availableTypes = [.crystalline, .nebulous, .prismatic]
+            // 1% common, 5% uncommon, 15% rare, 30% legendary, 49% mythic
+            if roll < 0.01 { return .solid }
+            if roll < 0.06 { return [.striped, .cratered].randomElement(using: &rng)! }
+            if roll < 0.21 { return .swirled }
+            if roll < 0.51 { return .volcanic }
+            return [.crystalline, .nebulous, .prismatic].randomElement(using: &rng)!
         }
-
-        return availableTypes.randomElement(using: &rng)!
     }
 
     private static func generateRingType(rarity: Rarity, rng: inout SeededRandomGenerator) -> RingType {
@@ -156,20 +176,38 @@ class PlanetGenerator {
 
         switch rarity {
         case .common:
-            return roll < 0.7 ? .none : .simple
-        case .uncommon:
-            if roll < 0.4 { return .none }
-            if roll < 0.9 { return .simple }
+            // Early: 70% none, 28% simple, 2% double
+            if roll < 0.70 { return .none }
+            if roll < 0.98 { return .simple }
             return .double
-        case .rare:
-            if roll < 0.2 { return .simple }
-            if roll < 0.7 { return .double }
+        case .uncommon:
+            // 50% none, 35% simple, 12% double, 3% chunky
+            if roll < 0.50 { return .none }
+            if roll < 0.85 { return .simple }
+            if roll < 0.97 { return .double }
             return .chunky
-        case .legendary:
-            if roll < 0.3 { return .double }
-            if roll < 0.7 { return .chunky }
+        case .rare:
+            // 30% none, 25% simple, 30% double, 14% chunky, 1% rainbow
+            if roll < 0.30 { return .none }
+            if roll < 0.55 { return .simple }
+            if roll < 0.85 { return .double }
+            if roll < 0.99 { return .chunky }
             return .rainbow
+        case .legendary:
+            // 10% none, 15% simple, 25% double, 40% chunky, 9% rainbow, 1% crossed
+            if roll < 0.10 { return .none }
+            if roll < 0.25 { return .simple }
+            if roll < 0.50 { return .double }
+            if roll < 0.90 { return .chunky }
+            if roll < 0.99 { return .rainbow }
+            return .crossed
         case .mythic:
+            // 5% none, 10% simple, 15% double, 25% chunky, 35% rainbow, 10% crossed
+            if roll < 0.05 { return .none }
+            if roll < 0.15 { return .simple }
+            if roll < 0.30 { return .double }
+            if roll < 0.55 { return .chunky }
+            if roll < 0.90 { return .rainbow }
             return .crossed
         }
     }
@@ -179,19 +217,34 @@ class PlanetGenerator {
 
         switch rarity {
         case .common:
-            return roll < 0.7 ? 0 : 1
-        case .uncommon:
-            if roll < 0.3 { return 0 }
-            if roll < 0.8 { return 1 }
+            // Early: 70% 0, 25% 1, 5% 2
+            if roll < 0.70 { return 0 }
+            if roll < 0.95 { return 1 }
             return 2
+        case .uncommon:
+            // 40% 0, 40% 1, 18% 2, 2% 3
+            if roll < 0.40 { return 0 }
+            if roll < 0.80 { return 1 }
+            if roll < 0.98 { return 2 }
+            return 3
         case .rare:
-            if roll < 0.2 { return 1 }
-            if roll < 0.7 { return 2 }
+            // 20% 0, 35% 1, 35% 2, 10% 3
+            if roll < 0.20 { return 0 }
+            if roll < 0.55 { return 1 }
+            if roll < 0.90 { return 2 }
             return 3
         case .legendary:
-            return rng.nextInt(min: 2, max: 3)
+            // 5% 0, 20% 1, 45% 2, 30% 3
+            if roll < 0.05 { return 0 }
+            if roll < 0.25 { return 1 }
+            if roll < 0.70 { return 2 }
+            return 3
         case .mythic:
-            return rng.nextInt(min: 3, max: 4)
+            // 1% 0, 10% 1, 40% 2, 49% 3
+            if roll < 0.01 { return 0 }
+            if roll < 0.11 { return 1 }
+            if roll < 0.51 { return 2 }
+            return 3
         }
     }
 
@@ -200,37 +253,45 @@ class PlanetGenerator {
 
         switch rarity {
         case .common:
-            return roll < 0.6 ? .none : .glow
+            // Early: 60% none, 37% glow, 3% halo
+            if roll < 0.60 { return .none }
+            if roll < 0.97 { return .glow }
+            return .halo
         case .uncommon:
-            if roll < 0.3 { return .none }
-            if roll < 0.8 { return .glow }
-            return .halo
+            // 40% none, 45% glow, 13% halo, 2% aurora
+            if roll < 0.40 { return .none }
+            if roll < 0.85 { return .glow }
+            if roll < 0.98 { return .halo }
+            return .aurora
         case .rare:
-            if roll < 0.3 { return .halo }
-            if roll < 0.8 { return .aurora }
-            return .halo
-        case .legendary:
-            if roll < 0.5 { return .aurora }
+            // 20% none, 30% glow, 35% halo, 14% aurora, 1% cosmic
+            if roll < 0.20 { return .none }
+            if roll < 0.50 { return .glow }
+            if roll < 0.85 { return .halo }
+            if roll < 0.99 { return .aurora }
             return .cosmic
+        case .legendary:
+            // 5% none, 15% glow, 25% halo, 45% aurora, 9% cosmic, 1% storm/ethereal
+            if roll < 0.05 { return .none }
+            if roll < 0.20 { return .glow }
+            if roll < 0.45 { return .halo }
+            if roll < 0.90 { return .aurora }
+            if roll < 0.99 { return .cosmic }
+            return roll < 0.995 ? .storm : .ethereal
         case .mythic:
-            return roll < 0.5 ? .storm : .ethereal
+            // 1% none, 5% glow, 15% halo, 30% aurora, 30% cosmic, 19% storm/ethereal
+            if roll < 0.01 { return .none }
+            if roll < 0.06 { return .glow }
+            if roll < 0.21 { return .halo }
+            if roll < 0.51 { return .aurora }
+            if roll < 0.81 { return .cosmic }
+            return roll < 0.905 ? .storm : .ethereal
         }
     }
 
     private static func generateOzoneDensity(rarity: Rarity, rng: inout SeededRandomGenerator) -> Double {
-        // Higher rarity planets tend to have denser ozone layers
-        switch rarity {
-        case .common:
-            return rng.nextDouble(min: 0.0, max: 0.3)
-        case .uncommon:
-            return rng.nextDouble(min: 0.2, max: 0.5)
-        case .rare:
-            return rng.nextDouble(min: 0.4, max: 0.7)
-        case .legendary:
-            return rng.nextDouble(min: 0.6, max: 1.0)
-        case .mythic:
-            return rng.nextDouble(min: 0.8, max: 1.0)
-        }
+        // Completely random ozone density
+        return rng.nextDouble(min: 0.0, max: 1.0)
     }
 
     private static func generateSizeClass(rarity: Rarity, rng: inout SeededRandomGenerator) -> SizeClass {
@@ -238,33 +299,45 @@ class PlanetGenerator {
 
         switch rarity {
         case .common:
-            // Common planets are mostly medium-sized
-            if roll < 0.70 { return .medium }
-            if roll < 0.85 { return .small }
+            // Early: 15% small, 70% medium, 15% large
+            if roll < 0.15 { return .small }
+            if roll < 0.85 { return .medium }
             return .large
         case .uncommon:
-            // Uncommon planets have more variety
-            if roll < 0.25 { return .small }
-            if roll < 0.50 { return .medium }
-            if roll < 0.75 { return .large }
-            return .tiny
+            // 10% tiny, 20% small, 40% medium, 20% large, 10% huge
+            if roll < 0.10 { return .tiny }
+            if roll < 0.30 { return .small }
+            if roll < 0.70 { return .medium }
+            if roll < 0.90 { return .large }
+            return .huge
         case .rare:
-            // Rare planets can be quite varied
-            if roll < 0.20 { return .tiny }
-            if roll < 0.40 { return .small }
-            if roll < 0.60 { return .large }
-            if roll < 0.80 { return .huge }
-            return .medium
+            // 5% tiny, 15% small, 30% medium, 30% large, 15% huge, 5% gigantic
+            if roll < 0.05 { return .tiny }
+            if roll < 0.20 { return .small }
+            if roll < 0.50 { return .medium }
+            if roll < 0.80 { return .large }
+            if roll < 0.95 { return .huge }
+            return .gigantic
         case .legendary:
-            // Legendary planets favor extreme sizes
-            if roll < 0.30 { return .huge }
-            if roll < 0.60 { return .gigantic }
-            if roll < 0.80 { return .tiny }
-            return .large
+            // 5% miniscule, 10% tiny, 10% small, 20% medium, 20% large, 20% huge, 14% gigantic, 1% titanic
+            if roll < 0.05 { return .miniscule }
+            if roll < 0.15 { return .tiny }
+            if roll < 0.25 { return .small }
+            if roll < 0.45 { return .medium }
+            if roll < 0.65 { return .large }
+            if roll < 0.85 { return .huge }
+            if roll < 0.99 { return .gigantic }
+            return .titanic
         case .mythic:
-            // Mythic planets are the extremes
-            if roll < 0.50 { return .titanic }
-            return .miniscule
+            // 15% miniscule, 10% tiny, 10% small, 10% medium, 10% large, 10% huge, 15% gigantic, 20% titanic
+            if roll < 0.15 { return .miniscule }
+            if roll < 0.25 { return .tiny }
+            if roll < 0.35 { return .small }
+            if roll < 0.45 { return .medium }
+            if roll < 0.55 { return .large }
+            if roll < 0.65 { return .huge }
+            if roll < 0.80 { return .gigantic }
+            return .titanic
         }
     }
 

@@ -14,19 +14,13 @@ struct ContentView: View {
         TabView {
             GeneratorView()
                 .tabItem {
-                    Label("Generator", systemImage: "sparkles")
+                    Label("Generator", systemImage: "wand.and.stars")
                 }
                 .environment(viewModel)
 
-            CollectionView()
+            UnifiedPlanetView()
                 .tabItem {
-                    Label("Collection", systemImage: "square.stack.3d.up")
-                }
-                .environment(viewModel)
-
-            GalaxyView()
-                .tabItem {
-                    Label("Galaxy", systemImage: "globe.americas.fill")
+                    Label("Planets", systemImage: "globe.americas.fill")
                 }
                 .environment(viewModel)
         }

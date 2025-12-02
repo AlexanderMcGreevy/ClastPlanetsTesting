@@ -55,6 +55,9 @@ class GalaxyViewModel {
     // Current planet preview (not yet discovered)
     var currentPreviewPlanet: Planet?
 
+    // Orbit indices for planets in galaxy view
+    var planetOrbits: [UUID: Int] = [:]
+
     // MARK: - Computed Properties
 
     var activePlanet: Planet? {
@@ -64,6 +67,10 @@ class GalaxyViewModel {
 
     var sortedPlanets: [Planet] {
         discoveredPlanets.sorted { $0.distanceDiscoveredAt < $1.distanceDiscoveredAt }
+    }
+
+    var galaxyPlanets: [Planet] {
+        discoveredPlanets.filter { galaxyPlanetIDs.contains($0.id) }
     }
 
     // MARK: - Initialization
@@ -92,6 +99,9 @@ class GalaxyViewModel {
         if galaxyPlanetIDs.isEmpty && !discoveredPlanets.isEmpty {
             galaxyPlanetIDs = Set(sortedPlanets.prefix(min(6, sortedPlanets.count)).map { $0.id })
         }
+
+        // Initialize planet orbits
+        updatePlanetOrbits()
     }
 
     // MARK: - Planet Generation
@@ -128,39 +138,73 @@ class GalaxyViewModel {
     // MARK: - Favoriting
 
     func toggleFavorite(_ planet: Planet) {
-        if favoritedPlanetIDs.contains(planet.id) {
-            favoritedPlanetIDs.remove(planet.id)
+        toggleFavorite(planet.id)
+    }
+
+    func toggleFavorite(_ planetID: UUID) {
+        if favoritedPlanetIDs.contains(planetID) {
+            favoritedPlanetIDs.remove(planetID)
         } else {
-            favoritedPlanetIDs.insert(planet.id)
+            favoritedPlanetIDs.insert(planetID)
         }
     }
 
     func isFavorited(_ planet: Planet) -> Bool {
-        favoritedPlanetIDs.contains(planet.id)
+        isFavorited(planet.id)
+    }
+
+    func isFavorited(_ planetID: UUID) -> Bool {
+        favoritedPlanetIDs.contains(planetID)
     }
 
     // MARK: - Galaxy Management
 
     func addToGalaxy(_ planet: Planet) {
+        addToGalaxy(planet.id)
+    }
+
+    func addToGalaxy(_ planetID: UUID) {
         if galaxyPlanetIDs.count < 10 {
-            galaxyPlanetIDs.insert(planet.id)
+            galaxyPlanetIDs.insert(planetID)
+            updatePlanetOrbits()
         }
     }
 
     func removeFromGalaxy(_ planet: Planet) {
-        galaxyPlanetIDs.remove(planet.id)
+        removeFromGalaxy(planet.id)
+    }
+
+    func removeFromGalaxy(_ planetID: UUID) {
+        galaxyPlanetIDs.remove(planetID)
+        updatePlanetOrbits()
     }
 
     func toggleGalaxy(_ planet: Planet) {
-        if galaxyPlanetIDs.contains(planet.id) {
-            removeFromGalaxy(planet)
+        toggleGalaxy(planet.id)
+    }
+
+    func toggleGalaxy(_ planetID: UUID) {
+        if galaxyPlanetIDs.contains(planetID) {
+            removeFromGalaxy(planetID)
         } else {
-            addToGalaxy(planet)
+            addToGalaxy(planetID)
         }
     }
 
     func isInGalaxy(_ planet: Planet) -> Bool {
-        galaxyPlanetIDs.contains(planet.id)
+        isInGalaxy(planet.id)
+    }
+
+    func isInGalaxy(_ planetID: UUID) -> Bool {
+        galaxyPlanetIDs.contains(planetID)
+    }
+
+    func updatePlanetOrbits() {
+        let sorted = galaxyPlanets.sorted(by: { $0.distanceDiscoveredAt < $1.distanceDiscoveredAt })
+        planetOrbits = [:]
+        for (index, planet) in sorted.enumerated() {
+            planetOrbits[planet.id] = index
+        }
     }
 
     // MARK: - Custom Positions
@@ -198,5 +242,85 @@ class GalaxyViewModel {
             let index2 = order.firstIndex(of: p2.rarity) ?? 0
             return index1 < index2
         }
+    }
+
+    // MARK: - Trait Discovery
+
+    func hasDiscoveredTrait(baseType: BaseType) -> Bool {
+        discoveredPlanets.contains(where: { $0.baseType == baseType })
+    }
+
+    func hasDiscoveredTrait(ringType: RingType) -> Bool {
+        discoveredPlanets.contains(where: { $0.ringType == ringType })
+    }
+
+    func hasDiscoveredTrait(atmosphereType: AtmosphereType) -> Bool {
+        discoveredPlanets.contains(where: { $0.atmosphereType == atmosphereType })
+    }
+
+    func hasDiscoveredTrait(sizeClass: SizeClass) -> Bool {
+        discoveredPlanets.contains(where: { $0.sizeClass == sizeClass })
+    }
+
+    // MARK: - Trait Statistics
+
+    func collectedTraitsCount(for rarity: Rarity) -> Int {
+        var count = 0
+
+        // Count base types
+        for baseType in BaseType.allCases where baseType.rarity == rarity {
+            if hasDiscoveredTrait(baseType: baseType) {
+                count += 1
+            }
+        }
+
+        // Count ring types
+        for ringType in RingType.allCases where ringType != .none && ringType.rarity == rarity {
+            if hasDiscoveredTrait(ringType: ringType) {
+                count += 1
+            }
+        }
+
+        // Count atmosphere types
+        for atmosphereType in AtmosphereType.allCases where atmosphereType != .none && atmosphereType.rarity == rarity {
+            if hasDiscoveredTrait(atmosphereType: atmosphereType) {
+                count += 1
+            }
+        }
+
+        // Count size classes
+        for sizeClass in SizeClass.allCases where sizeClass.rarity == rarity {
+            if hasDiscoveredTrait(sizeClass: sizeClass) {
+                count += 1
+            }
+        }
+
+        return count
+    }
+
+    func totalTraitsCount(for rarity: Rarity) -> Int {
+        var count = 0
+
+        // Base types
+        count += BaseType.allCases.filter { $0.rarity == rarity }.count
+
+        // Ring types (excluding .none)
+        count += RingType.allCases.filter { $0 != .none && $0.rarity == rarity }.count
+
+        // Atmosphere types (excluding .none)
+        count += AtmosphereType.allCases.filter { $0 != .none && $0.rarity == rarity }.count
+
+        // Size classes
+        count += SizeClass.allCases.filter { $0.rarity == rarity }.count
+
+        return count
+    }
+
+    var totalCollectedTraits: Int {
+        Rarity.allCases.reduce(0) { $0 + collectedTraitsCount(for: $1) }
+    }
+
+    var totalTraits: Int {
+        Rarity.allCases.reduce(0) { $0 + totalTraitsCount(for: $1) }
     }
 }

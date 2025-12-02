@@ -30,6 +30,16 @@ enum Rarity: String, Codable, CaseIterable {
     var displayName: String {
         rawValue.capitalized
     }
+
+    var sortOrder: Int {
+        switch self {
+        case .common: return 0
+        case .uncommon: return 1
+        case .rare: return 2
+        case .legendary: return 3
+        case .mythic: return 4
+        }
+    }
 }
 
 // MARK: - Planet Components
@@ -139,6 +149,19 @@ enum SizeClass: String, Codable, CaseIterable {
         case .titanic: return .mythic
         }
     }
+
+    var sortOrder: Int {
+        switch self {
+        case .miniscule: return 0
+        case .tiny: return 1
+        case .small: return 2
+        case .medium: return 3
+        case .large: return 4
+        case .huge: return 5
+        case .gigantic: return 6
+        case .titanic: return 7
+        }
+    }
 }
 
 // MARK: - Planet
@@ -179,38 +202,25 @@ struct Planet: Identifiable, Codable, Equatable {
         Color(hex: accentColorHex)
     }
 
-    // Calculate overall rarity based on components
+    // Calculate overall rarity based on highest rarity component
     var calculatedRarity: Rarity {
         let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
 
-        // If any component is mythic, the planet is mythic
-        if rarities.contains(.mythic) {
-            return .mythic
-        }
+        // Find the highest rarity
+        return rarities.max(by: { $0.sortOrder < $1.sortOrder }) ?? .common
+    }
 
-        let rarityScores = rarities.map { rarity -> Int in
-            switch rarity {
-            case .common: return 0
-            case .uncommon: return 1
-            case .rare: return 2
-            case .legendary: return 3
-            case .mythic: return 4
-            }
-        }
+    // Count how many traits are at the highest rarity level
+    var highestRarityCount: Int {
+        let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
+        let highest = calculatedRarity
+        return rarities.filter { $0 == highest }.count
+    }
 
-        let moonScore = moonCount // 0-3
-        let totalScore = rarityScores.reduce(0, +) + moonScore
-
-        // Determine overall rarity
-        if totalScore >= 11 {
-            return .legendary
-        } else if totalScore >= 7 {
-            return .rare
-        } else if totalScore >= 4 {
-            return .uncommon
-        } else {
-            return .common
-        }
+    // Display name with rarity count (e.g., "Legendary 3")
+    var rarityDisplayName: String {
+        let count = highestRarityCount
+        return "\(calculatedRarity.displayName) \(count)"
     }
 
     // Description text

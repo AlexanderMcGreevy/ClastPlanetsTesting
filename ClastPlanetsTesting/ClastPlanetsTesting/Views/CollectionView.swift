@@ -188,13 +188,13 @@ struct PlanetRow: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text(planet.rarity.displayName)
+                    Text(planet.rarityDisplayName)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(planet.rarity.color)
+                        .background(planet.calculatedRarity.color)
                         .cornerRadius(4)
 
                     Text("\(Int(planet.distanceDiscoveredAt).formatted()) km")
@@ -238,12 +238,12 @@ struct PlanetDetailView: View {
                             .fontWeight(.bold)
 
                         HStack(spacing: 4) {
-                            Text(planet.rarity.displayName)
+                            Text(planet.rarityDisplayName)
                                 .font(.headline)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(planet.rarity.color)
+                                .background(planet.calculatedRarity.color)
                                 .cornerRadius(8)
 
                             Spacer()
@@ -282,6 +282,13 @@ struct PlanetDetailView: View {
                             label: "Base Type",
                             value: planet.baseType.rawValue.capitalized,
                             badge: planet.baseType.rarity
+                        )
+
+                        detailRow(
+                            icon: "square.fill.text.grid.1x2",
+                            label: "Surface",
+                            value: planet.surfaceType.displayName,
+                            badge: planet.surfaceType.rarity
                         )
 
                         detailRow(

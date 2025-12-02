@@ -79,8 +79,157 @@ struct PlanetView: View {
                 )
                 .frame(width: planetRadius * 2, height: planetRadius * 2)
 
+            // Add surface texture patterns
+            surfacePattern
+
             // Add patterns based on base type
             baseTypePattern
+        }
+    }
+
+    // MARK: - Surface Texture Patterns
+
+    @ViewBuilder
+    private var surfacePattern: some View {
+        switch planet.surfaceType {
+        case .smooth:
+            // Clean, no texture
+            EmptyView()
+
+        case .rocky:
+            // Small rocks scattered across surface
+            ZStack {
+                ForEach(0..<15) { index in
+                    Circle()
+                        .fill(planet.secondaryColor.opacity(0.25))
+                        .frame(width: planetRadius / 12, height: planetRadius / 12)
+                        .offset(craterOffset(index: index + 100))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .icy:
+            // Crystalline frost patterns
+            ZStack {
+                ForEach(0..<10) { index in
+                    Diamond()
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        .frame(width: planetRadius / 6, height: planetRadius / 6)
+                        .rotationEffect(.degrees(Double(index) * 36))
+                        .offset(craterOffset(index: index + 200))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .desert:
+            // Sandy dune waves
+            VStack(spacing: planetRadius / 12) {
+                ForEach(0..<6) { _ in
+                    Rectangle()
+                        .fill(planet.accentColor.opacity(0.15))
+                        .frame(height: planetRadius / 15)
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .oceanic:
+            // Water wave ripples
+            ZStack {
+                ForEach(0..<4) { index in
+                    Circle()
+                        .stroke(Color.white.opacity(0.1), lineWidth: 2)
+                        .frame(width: planetRadius * (0.5 + Double(index) * 0.3), height: planetRadius * (0.5 + Double(index) * 0.3))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .volcanic:
+            // Lava cracks/veins
+            ZStack {
+                ForEach(0..<8) { index in
+                    Rectangle()
+                        .fill(Color.red.opacity(0.3))
+                        .frame(width: 2, height: planetRadius * 0.8)
+                        .rotationEffect(.degrees(Double(index) * 45))
+                        .offset(volcanoOffset(index: index + 50))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .crystalline:
+            // Large geometric crystals
+            ZStack {
+                ForEach(0..<8) { index in
+                    Diamond()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.3), planet.accentColor.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: planetRadius / 4, height: planetRadius / 4)
+                        .rotationEffect(.degrees(Double(index) * 45))
+                        .offset(craterOffset(index: index + 300))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .molten:
+            // Flowing lava texture
+            ZStack {
+                ForEach(0..<5) { index in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.orange.opacity(0.4), Color.red.opacity(0.2)],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: planetRadius / 3
+                            )
+                        )
+                        .frame(width: planetRadius / 2, height: planetRadius / 2)
+                        .blur(radius: 4)
+                        .offset(volcanoOffset(index: index + 150))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
+
+        case .prismatic:
+            // Iridescent rainbow shimmer
+            Circle()
+                .fill(
+                    AngularGradient(
+                        colors: [.red.opacity(0.3), .orange.opacity(0.3), .yellow.opacity(0.3), .green.opacity(0.3), .cyan.opacity(0.3), .blue.opacity(0.3), .purple.opacity(0.3), .red.opacity(0.3)],
+                        center: .center
+                    )
+                )
+                .frame(width: planetRadius * 2, height: planetRadius * 2)
+                .blur(radius: 3)
+
+        case .voidlike:
+            // Deep dark with star particles
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: planetRadius * 2, height: planetRadius * 2)
+
+                ForEach(0..<12) { index in
+                    Circle()
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: planetRadius / 20, height: planetRadius / 20)
+                        .offset(craterOffset(index: index + 400))
+                }
+            }
+            .frame(width: planetRadius * 2, height: planetRadius * 2)
+            .clipShape(Circle())
         }
     }
 

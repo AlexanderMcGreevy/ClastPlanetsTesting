@@ -39,6 +39,7 @@ class PlanetGenerator {
 
         // Generate components based on rarity
         let baseType = generateBaseType(rarity: rarity, rng: &rng)
+        let surfaceType = generateSurfaceType(rarity: rarity, rng: &rng)
         let ringType = generateRingType(rarity: rarity, rng: &rng)
         let moonCount = generateMoonCount(rarity: rarity, rng: &rng)
         let atmosphereType = generateAtmosphereType(rarity: rarity, rng: &rng)
@@ -63,6 +64,7 @@ class PlanetGenerator {
             rarity: rarity,
             seed: actualSeed,
             baseType: baseType,
+            surfaceType: surfaceType,
             ringType: ringType,
             moonCount: moonCount,
             atmosphereType: atmosphereType,
@@ -168,6 +170,45 @@ class PlanetGenerator {
             if roll < 0.21 { return .swirled }
             if roll < 0.51 { return .volcanic }
             return [.crystalline, .nebulous, .prismatic].randomElement(using: &rng)!
+        }
+    }
+
+    private static func generateSurfaceType(rarity: Rarity, rng: inout SeededRandomGenerator) -> SurfaceType {
+        let roll = rng.nextDouble()
+
+        switch rarity {
+        case .common:
+            // Early game: 75% common, 23% uncommon, 2% rare
+            if roll < 0.75 { return [.smooth, .rocky].randomElement(using: &rng)! }
+            if roll < 0.98 { return [.desert, .icy].randomElement(using: &rng)! }
+            return [.oceanic, .volcanic].randomElement(using: &rng)!
+        case .uncommon:
+            // 40% common, 45% uncommon, 13% rare, 2% legendary
+            if roll < 0.40 { return [.smooth, .rocky].randomElement(using: &rng)! }
+            if roll < 0.85 { return [.desert, .icy].randomElement(using: &rng)! }
+            if roll < 0.98 { return [.oceanic, .volcanic].randomElement(using: &rng)! }
+            return [.crystalline, .molten].randomElement(using: &rng)!
+        case .rare:
+            // 10% common, 30% uncommon, 50% rare, 9% legendary, 1% mythic
+            if roll < 0.10 { return [.smooth, .rocky].randomElement(using: &rng)! }
+            if roll < 0.40 { return [.desert, .icy].randomElement(using: &rng)! }
+            if roll < 0.90 { return [.oceanic, .volcanic].randomElement(using: &rng)! }
+            if roll < 0.99 { return [.crystalline, .molten].randomElement(using: &rng)! }
+            return [.prismatic, .voidlike].randomElement(using: &rng)!
+        case .legendary:
+            // 1% common, 10% uncommon, 30% rare, 50% legendary, 9% mythic
+            if roll < 0.01 { return [.smooth, .rocky].randomElement(using: &rng)! }
+            if roll < 0.11 { return [.desert, .icy].randomElement(using: &rng)! }
+            if roll < 0.41 { return [.oceanic, .volcanic].randomElement(using: &rng)! }
+            if roll < 0.91 { return [.crystalline, .molten].randomElement(using: &rng)! }
+            return [.prismatic, .voidlike].randomElement(using: &rng)!
+        case .mythic:
+            // 1% common, 5% uncommon, 15% rare, 30% legendary, 49% mythic
+            if roll < 0.01 { return [.smooth, .rocky].randomElement(using: &rng)! }
+            if roll < 0.06 { return [.desert, .icy].randomElement(using: &rng)! }
+            if roll < 0.21 { return [.oceanic, .volcanic].randomElement(using: &rng)! }
+            if roll < 0.51 { return [.crystalline, .molten].randomElement(using: &rng)! }
+            return [.prismatic, .voidlike].randomElement(using: &rng)!
         }
     }
 

@@ -119,7 +119,13 @@ struct GalaxyViewContent: View {
     @State private var selectedPlanetForInfo: Planet?
     @State private var zoomScale: CGFloat = 1.0
     @State private var baseZoomScale: CGFloat = 1.0
-    @State private var ringSpacing: Double = 80
+    @State private var ringSpacing: Double = 70
+    @State private var draggedPlanetID: UUID? = nil
+    @State private var dragOffset: CGSize = .zero
+    @State private var isZooming: Bool = false
+    @State private var panOffset: CGSize = .zero
+    @State private var basePanOffset: CGSize = .zero
+    @State private var isPanning: Bool = false
 
     private var sortedGalaxyPlanets: [Planet] {
         viewModel.galaxyPlanets.sorted(by: {
@@ -137,8 +143,53 @@ struct GalaxyViewContent: View {
                 } else {
                     VStack(spacing: 0) {
                         solarSystemView
+                            .offset(panOffset)
+                            .contentShape(Rectangle())
                         if isEditMode {
                             controlsSection
+                        }
+                    }
+                    .simultaneousGesture(
+                        MagnificationGesture(minimumScaleDelta: 0)
+                            .onChanged { value in
+                                isZooming = true
+                                zoomScale = baseZoomScale * value
+                            }
+                            .onEnded { value in
+                                baseZoomScale = zoomScale
+                                // Delay resetting zoom state to prevent immediate drag
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    isZooming = false
+                                }
+                            }
+                    )
+                    .gesture(
+                        DragGesture(minimumDistance: 10)
+                            .onChanged { value in
+                                // Only pan if not dragging a planet in edit mode
+                                if draggedPlanetID == nil {
+                                    isPanning = true
+                                    panOffset = CGSize(
+                                        width: basePanOffset.width + value.translation.width,
+                                        height: basePanOffset.height + value.translation.height
+                                    )
+                                }
+                            }
+                            .onEnded { value in
+                                basePanOffset = panOffset
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    isPanning = false
+                                }
+                            },
+                        including: draggedPlanetID == nil ? .all : .none
+                    )
+                    .onTapGesture(count: 2) {
+                        // Double tap to reset zoom and pan
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            zoomScale = 1.0
+                            baseZoomScale = 1.0
+                            panOffset = .zero
+                            basePanOffset = .zero
                         }
                     }
                 }
@@ -146,6 +197,21 @@ struct GalaxyViewContent: View {
             .navigationTitle("Galaxy")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if zoomScale != 1.0 || panOffset != .zero {
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                zoomScale = 1.0
+                                baseZoomScale = 1.0
+                                panOffset = .zero
+                                basePanOffset = .zero
+                            }
+                        } label: {
+                            Image(systemName: "arrow.counterclockwise")
+                        }
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isEditMode ? "Done" : "Edit") {
                         withAnimation {
@@ -216,37 +282,11 @@ struct GalaxyViewContent: View {
         GeometryReader { geometry in
             let centerX = geometry.size.width / 2
             let centerY = geometry.size.height / 2
-            let center = CGPoint(x: centerX, y: centerY)
-            let maxRadius = min(geometry.size.width, geometry.size.height) * 0.45
-            let totalOrbits = viewModel.galaxyPlanets.count
 
             ZStack {
                 starsBackground
 
-                ForEach(sortedGalaxyPlanets) { planet in
-                    if let orbitIndex = viewModel.planetOrbits[planet.id] {
-                        OrbitPlanetView(
-                            planet: planet,
-                            orbitIndex: orbitIndex,
-                            totalOrbits: totalOrbits,
-                            center: center,
-                            maxRadius: maxRadius,
-                            ringSpacing: CGFloat(ringSpacing) * zoomScale,
-                            reduceMotion: reduceMotion,
-                            isEditMode: isEditMode,
-                            onOrbitChange: { newOrbit in
-                                viewModel.updatePlanetOrbits()
-                            },
-                            onTap: {
-                                if !isEditMode {
-                                    selectedPlanetForInfo = planet
-                                }
-                            }
-                        )
-                        .environment(viewModel)
-                    }
-                }
-
+                // Sun - render first so planets appear on top
                 Circle()
                     .fill(
                         RadialGradient(
@@ -260,16 +300,96 @@ struct GalaxyViewContent: View {
                     .shadow(color: .yellow.opacity(0.6), radius: 30)
                     .position(x: centerX, y: centerY)
                     .allowsHitTesting(false)
+
+                // Orbit rings and planets
+                TimelineView(.animation(paused: reduceMotion)) { timeline in
+                    ZStack {
+                        // Draw all orbit rings first
+                        ForEach(sortedGalaxyPlanets) { planet in
+                            if let orbitIndex = viewModel.planetOrbits[planet.id] {
+                                let orbitRadius = CGFloat(orbitIndex + 1) * CGFloat(ringSpacing) * zoomScale
+
+                                // Calculate if this is the target orbit during drag
+                                let isTargetOrbit: Bool = {
+                                    guard isEditMode, let draggedID = draggedPlanetID else { return false }
+                                    if let draggedOrbitIndex = viewModel.planetOrbits[draggedID] {
+                                        let draggedAngle = (timeline.date.timeIntervalSinceReferenceDate / Double(5 + draggedOrbitIndex * 2)).truncatingRemainder(dividingBy: 2 * .pi)
+                                        let draggedOrbitRadius = CGFloat(draggedOrbitIndex + 1) * CGFloat(ringSpacing) * zoomScale
+                                        let draggedPlanetX = centerX + cos(draggedAngle) * draggedOrbitRadius
+                                        let draggedPlanetY = centerY + sin(draggedAngle) * draggedOrbitRadius
+                                        let finalDragX = draggedPlanetX + dragOffset.width
+                                        let finalDragY = draggedPlanetY + dragOffset.height
+                                        let dx = finalDragX - centerX
+                                        let dy = finalDragY - centerY
+                                        let distanceFromCenter = sqrt(dx * dx + dy * dy)
+                                        let targetOrbitIndex = max(0, min(sortedGalaxyPlanets.count - 1, Int(round(distanceFromCenter / (CGFloat(ringSpacing) * zoomScale))) - 1))
+                                        return targetOrbitIndex == orbitIndex
+                                    }
+                                    return false
+                                }()
+
+                                Circle()
+                                    .stroke(isTargetOrbit ? Color.blue.opacity(0.7) : Color.white.opacity(0.2), lineWidth: isTargetOrbit ? 3 : 1)
+                                    .frame(width: orbitRadius * 2, height: orbitRadius * 2)
+                                    .position(x: centerX, y: centerY)
+                                    .animation(.spring(response: 0.3), value: isTargetOrbit)
+                            }
+                        }
+
+                        // Draw all planets on top
+                        ForEach(sortedGalaxyPlanets) { planet in
+                            if let orbitIndex = viewModel.planetOrbits[planet.id] {
+                                let orbitRadius = CGFloat(orbitIndex + 1) * CGFloat(ringSpacing) * zoomScale
+                                let speed = Double(5 + orbitIndex * 2)
+                                let angle = (timeline.date.timeIntervalSinceReferenceDate / speed).truncatingRemainder(dividingBy: 2 * .pi)
+
+                                let planetX = centerX + cos(angle) * orbitRadius
+                                let planetY = centerY + sin(angle) * orbitRadius
+
+                                // Apply drag offset if this planet is being dragged
+                                let finalX = draggedPlanetID == planet.id ? planetX + dragOffset.width : planetX
+                                let finalY = draggedPlanetID == planet.id ? planetY + dragOffset.height : planetY
+
+                                PlanetView(planet: planet, size: 60, animated: true)
+                                    .position(x: finalX, y: finalY)
+                                    .opacity(draggedPlanetID == planet.id && isEditMode ? 0.7 : 1.0)
+                                    .onTapGesture {
+                                        if !isEditMode {
+                                            selectedPlanetForInfo = planet
+                                        }
+                                    }
+                                    .gesture(
+                                        (isEditMode && !isZooming && !isPanning) ? DragGesture(minimumDistance: 0)
+                                            .onChanged { value in
+                                                draggedPlanetID = planet.id
+                                                dragOffset = value.translation
+                                            }
+                                            .onEnded { value in
+                                                // Calculate final position
+                                                let finalDragX = finalX
+                                                let finalDragY = finalY
+
+                                                // Calculate distance from center
+                                                let dx = finalDragX - centerX
+                                                let dy = finalDragY - centerY
+                                                let distanceFromCenter = sqrt(dx * dx + dy * dy)
+
+                                                // Determine which orbit this corresponds to
+                                                let targetOrbitIndex = max(0, min(sortedGalaxyPlanets.count - 1, Int(round(distanceFromCenter / (CGFloat(ringSpacing) * zoomScale))) - 1))
+
+                                                // Update the orbit
+                                                viewModel.setPlanetOrbit(planet.id, to: targetOrbitIndex)
+
+                                                // Reset drag state
+                                                draggedPlanetID = nil
+                                                dragOffset = .zero
+                                            } : nil
+                                    )
+                            }
+                        }
+                    }
+                }
             }
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { value in
-                        zoomScale = baseZoomScale * value
-                    }
-                    .onEnded { value in
-                        baseZoomScale = zoomScale
-                    }
-            )
         }
     }
 
@@ -322,7 +442,7 @@ struct GalaxyViewContent: View {
                         .foregroundStyle(.white)
                 }
 
-                Slider(value: $ringSpacing, in: 40...120, step: 5)
+                Slider(value: $ringSpacing, in: 20...150, step: 5)
                     .tint(.blue)
             }
         }
@@ -608,6 +728,160 @@ struct DictionaryViewContent: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+// MARK: - Simple Planet Selection Sheet
+
+struct SimplePlanetSelectionSheet: View {
+    @Environment(GalaxyViewModel.self) private var viewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Info banner
+                HStack {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.blue)
+                    Text("Select up to 10 planets to display in orbit")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+                .background(Color.blue.opacity(0.1))
+
+                ScrollView {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 16) {
+                        ForEach(viewModel.sortedPlanets) { planet in
+                            SimplePlanetCard(
+                                planet: planet,
+                                isSelected: viewModel.galaxyPlanetIDs.contains(planet.id),
+                                onToggle: {
+                                    viewModel.toggleGalaxy(planet)
+                                }
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Manage Galaxy Planets")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Clear All") {
+                        viewModel.galaxyPlanetIDs.removeAll()
+                    }
+                    .disabled(viewModel.galaxyPlanetIDs.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Simple Planet Card
+
+struct SimplePlanetCard: View {
+    let planet: Planet
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button {
+            onToggle()
+        } label: {
+            VStack(spacing: 12) {
+                ZStack(alignment: .topTrailing) {
+                    PlanetView(planet: planet, size: 100, animated: false)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .background(Circle().fill(Color(uiColor: .systemBackground)))
+                            .font(.title2)
+                            .padding(4)
+                    }
+                }
+
+                VStack(spacing: 4) {
+                    Text(planet.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+
+                    Text(planet.rarityDisplayName)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(planet.calculatedRarity.color)
+                        .cornerRadius(4)
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.green : Color.clear, lineWidth: isSelected ? 2 : 0)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Trait Row
+
+struct TraitRow: View {
+    let name: String
+    let rarity: Rarity
+    let isCollected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Rarity indicator
+            Circle()
+                .fill(rarity.color)
+                .frame(width: 10, height: 10)
+                .opacity(isCollected ? 1.0 : 0.3)
+
+            // Trait name
+            Text(name)
+                .font(.body)
+                .foregroundStyle(isCollected ? .primary : .secondary)
+                .opacity(isCollected ? 1.0 : 0.5)
+
+            Spacer()
+
+            // Rarity badge
+            Text(rarity.displayName)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(rarity.color)
+                .cornerRadius(4)
+                .opacity(isCollected ? 1.0 : 0.5)
+
+            // Collection status icon
+            Image(systemName: isCollected ? "checkmark.circle.fill" : "lock.circle.fill")
+                .foregroundStyle(isCollected ? .green : .gray)
+                .font(.title3)
+        }
+        .padding(.vertical, 4)
     }
 }
 

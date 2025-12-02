@@ -164,6 +164,38 @@ enum SizeClass: String, Codable, CaseIterable {
     }
 }
 
+enum SurfaceType: String, Codable, CaseIterable {
+    case smooth
+    case rocky
+    case icy
+    case desert
+    case oceanic
+    case volcanic
+    case crystalline
+    case molten
+    case prismatic
+    case voidlike
+
+    var displayName: String {
+        rawValue.capitalized
+    }
+
+    var rarity: Rarity {
+        switch self {
+        case .smooth: return .common
+        case .rocky: return .common
+        case .desert: return .uncommon
+        case .icy: return .uncommon
+        case .oceanic: return .rare
+        case .volcanic: return .rare
+        case .crystalline: return .legendary
+        case .molten: return .legendary
+        case .prismatic: return .mythic
+        case .voidlike: return .mythic
+        }
+    }
+}
+
 // MARK: - Planet
 
 struct Planet: Identifiable, Codable, Equatable {
@@ -175,6 +207,7 @@ struct Planet: Identifiable, Codable, Equatable {
 
     // Visual components
     let baseType: BaseType
+    let surfaceType: SurfaceType
     let ringType: RingType
     let moonCount: Int // 0-3
     let atmosphereType: AtmosphereType
@@ -204,7 +237,7 @@ struct Planet: Identifiable, Codable, Equatable {
 
     // Calculate overall rarity based on highest rarity component
     var calculatedRarity: Rarity {
-        let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
+        let rarities = [baseType.rarity, surfaceType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
 
         // Find the highest rarity
         return rarities.max(by: { $0.sortOrder < $1.sortOrder }) ?? .common
@@ -212,7 +245,7 @@ struct Planet: Identifiable, Codable, Equatable {
 
     // Count how many traits are at the highest rarity level
     var highestRarityCount: Int {
-        let rarities = [baseType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
+        let rarities = [baseType.rarity, surfaceType.rarity, ringType.rarity, atmosphereType.rarity, sizeClass.rarity]
         let highest = calculatedRarity
         return rarities.filter { $0 == highest }.count
     }

@@ -71,10 +71,15 @@ struct UnifiedPlanetView: View {
                 } label: {
                     Group {
                         if isScrolling {
-                            // Small dot version
-                            Circle()
-                                .fill(selectedTab == tab ? tab.color : tab.color.opacity(0.5))
-                                .frame(width: 12, height: 12)
+                            // Small dot version with adequate tap target
+                            ZStack {
+                                Circle()
+                                    .fill(Color.clear)
+                                    .frame(width: 44, height: 44)
+                                Circle()
+                                    .fill(selectedTab == tab ? tab.color : tab.color.opacity(0.5))
+                                    .frame(width: 12, height: 12)
+                            }
                         } else {
                             // Full icon version
                             Image(systemName: tab.icon)
@@ -103,7 +108,8 @@ struct UnifiedPlanetView: View {
             }
         }
         .padding(.leading, 16)
-        .padding(.top, 16)
+        .padding(.top, 60)
+        .padding(.trailing, 8)
     }
 }
 
@@ -141,48 +147,53 @@ struct GalaxyViewContent: View {
                 if viewModel.galaxyPlanets.isEmpty {
                     noPlanetState
                 } else {
-                    VStack(spacing: 0) {
-                        solarSystemView
-                            .offset(panOffset)
-                            .contentShape(Rectangle())
-                        if isEditMode {
-                            controlsSection
+                    GeometryReader { geometry in
+                        VStack(spacing: 0) {
+                            solarSystemView
+                            if isEditMode {
+                                controlsSection
+                            }
                         }
+                        .offset(panOffset)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(
+                            MagnificationGesture(minimumScaleDelta: 0)
+                                .onChanged { value in
+                                    isZooming = true
+                                    zoomScale = baseZoomScale * value
+                                }
+                                .onEnded { value in
+                                    baseZoomScale = zoomScale
+                                    // Delay resetting zoom state to prevent immediate drag
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        isZooming = false
+                                    }
+                                }
+                        )
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    // Only pan if not dragging a planet in edit mode
+                                    guard draggedPlanetID == nil && !isZooming else { return }
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
+                                        isPanning = true
+                                        panOffset = CGSize(
+                                            width: basePanOffset.width + value.translation.width,
+                                            height: basePanOffset.height + value.translation.height
+                                        )
+                                    }
+                                }
+                                .onEnded { value in
+                                    guard draggedPlanetID == nil else { return }
+                                    basePanOffset = panOffset
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        isPanning = false
+                                    }
+                                }
+                        )
                     }
-                    .simultaneousGesture(
-                        MagnificationGesture(minimumScaleDelta: 0)
-                            .onChanged { value in
-                                isZooming = true
-                                zoomScale = baseZoomScale * value
-                            }
-                            .onEnded { value in
-                                baseZoomScale = zoomScale
-                                // Delay resetting zoom state to prevent immediate drag
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    isZooming = false
-                                }
-                            }
-                    )
-                    .gesture(
-                        DragGesture(minimumDistance: 10)
-                            .onChanged { value in
-                                // Only pan if not dragging a planet in edit mode
-                                if draggedPlanetID == nil {
-                                    isPanning = true
-                                    panOffset = CGSize(
-                                        width: basePanOffset.width + value.translation.width,
-                                        height: basePanOffset.height + value.translation.height
-                                    )
-                                }
-                            }
-                            .onEnded { value in
-                                basePanOffset = panOffset
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    isPanning = false
-                                }
-                            },
-                        including: draggedPlanetID == nil ? .all : .none
-                    )
                     .onTapGesture(count: 2) {
                         // Double tap to reset zoom and pan
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
